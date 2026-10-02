@@ -39,7 +39,7 @@ export const getCountryName = (code) => BY_CODE.get(String(code || '').toUpperCa
 // trouve "Côte-d'Ivoire"), ainsi que par indicatif ("225") ou code ISO.
 const normalize = (str) => String(str)
   .normalize('NFD')
-  .replace(/[̀-ͯ]/g, '')
+  .replace(/[\u0300-\u036f]/g, '')
   .toLowerCase()
   .replace(/[-'\s]+/g, ' ')
   .trim();

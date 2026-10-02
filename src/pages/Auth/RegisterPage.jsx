@@ -2,17 +2,20 @@ import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Bike, Car, AlertCircle, Check, ShieldCheck, ChevronDown } from 'lucide-react';
+import { Bike, Car, AlertCircle, ShieldCheck, ChevronDown } from 'lucide-react';
 import AuthShell from '../../components/common/AuthShell';
 import FormField from '../../components/common/FormField';
+import Callout from '../../components/common/Callout';
 import PasswordInput from '../../components/common/PasswordInput';
 import PhoneInput from '../../components/common/PhoneInput';
 import FilePicker from '../../components/common/FilePicker';
+import ChoiceGroup from '../../components/common/ChoiceGroup';
 import CountrySelectSheet from '../../components/common/CountrySelectSheet';
 import { registerLivreur, clearAuthError } from '../../store/slices/authSlice';
 import { ROUTES } from '../../routes';
 import { DEFAULT_COUNTRY, findCountry } from '../../utils/countries';
 import { nationalPhone, displayPhone } from '../../utils/phone';
+import ButtonLabel from '../../components/common/ButtonLabel';
 
 // Inscription self-service avec verification KYC (PARCOURS_LIVREUR_API.md §1).
 // POST /register-livreur en multipart. Le compte reste inactif jusqu'a la
@@ -47,7 +50,7 @@ function Stepper({ current }) {
         return (
           <li key={s.key} className="flex flex-1 flex-col gap-1.5">
             <span className={`h-1.5 rounded-full transition-colors ${done || active ? 'bg-primary-600' : 'bg-surface-200'}`} />
-            <span className={`text-[11px] font-medium ${active ? 'text-primary-700' : done ? 'text-surface-600' : 'text-surface-400'}`}>
+            <span className={`text-caption font-medium ${active ? 'text-primary-700' : done ? 'text-surface-600' : 'text-surface-500'}`}>
               {i + 1}. {s.label}
             </span>
           </li>
@@ -169,11 +172,7 @@ export default function RegisterPage() {
     >
       <Stepper current={step} />
 
-      {error && (
-        <div className="mb-5 flex items-start gap-2.5 rounded-xl bg-danger-50 p-3.5 text-sm text-danger-700" role="alert">
-          <AlertCircle size={18} className="mt-px shrink-0" aria-hidden="true" /> {error}
-        </div>
-      )}
+      {error && <Callout tone="danger" icon={AlertCircle} role="alert" className="mb-5">{error}</Callout>}
 
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         {step === 0 && (
@@ -210,21 +209,7 @@ export default function RegisterPage() {
         {step === 1 && (
           <div className="animate-slide-up space-y-4">
             <FormField label="Type de pièce d'identité" error={err('typePieceIdentite', 'type_piece_identite')}>
-              <div className="grid grid-cols-3 gap-2">
-                {PIECES.map((p) => (
-                  <button
-                    key={p.value}
-                    type="button"
-                    onClick={() => set('typePieceIdentite')(p.value)}
-                    aria-pressed={form.typePieceIdentite === p.value}
-                    className={`min-h-12 rounded-xl border px-2 text-xs font-semibold leading-tight transition ${
-                      form.typePieceIdentite === p.value ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-surface-200 bg-white text-surface-600'
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
+              <ChoiceGroup label="Type de pièce d'identité" options={PIECES} value={form.typePieceIdentite} onChange={set('typePieceIdentite')} columns={3} />
             </FormField>
             <FormField label="Numéro de la pièce" htmlFor="numero-piece" error={err('numeroPieceIdentite', 'numero_piece_identite')}>
               <input id="numero-piece" maxLength={100} className={`input-field uppercase ${err('numeroPieceIdentite', 'numero_piece_identite') ? 'input-error' : ''}`} value={form.numeroPieceIdentite} onChange={setInput('numeroPieceIdentite')} />
@@ -241,26 +226,7 @@ export default function RegisterPage() {
         {step === 2 && (
           <div className="animate-slide-up space-y-4">
             <FormField label="Type de véhicule" error={err('typeVehicule', 'type_vehicule')}>
-              <div className="grid grid-cols-2 gap-3">
-                {VEHICULES.map((v) => {
-                  const active = form.typeVehicule === v.value;
-                  return (
-                    <button
-                      key={v.value}
-                      type="button"
-                      onClick={() => set('typeVehicule')(v.value)}
-                      aria-pressed={active}
-                      className={`relative flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl border-2 transition ${
-                        active ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-surface-200 bg-white text-surface-600'
-                      }`}
-                    >
-                      {active && <Check size={16} className="absolute right-2.5 top-2.5" aria-hidden="true" />}
-                      <v.icon size={28} aria-hidden="true" />
-                      <span className="text-sm font-semibold">{v.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <ChoiceGroup label="Type de véhicule" options={VEHICULES} value={form.typeVehicule} onChange={set('typeVehicule')} size="lg" />
             </FormField>
             <FormField label="Immatriculation" htmlFor="numero-vehicule" optional error={err('numeroVehicule', 'numero_vehicule')}>
               <input id="numero-vehicule" placeholder="AB-1234-CI" className="input-field uppercase" value={form.numeroVehicule} onChange={setInput('numeroVehicule')} />
@@ -319,8 +285,8 @@ export default function RegisterPage() {
           {step > 0 && (
             <button type="button" className="btn-secondary btn-lg flex-1" onClick={back} disabled={loading}>Retour</button>
           )}
-          <button type="submit" className="btn-primary btn-lg flex-[2]" disabled={loading}>
-            {loading ? 'Envoi du dossier…' : step < STEPS.length - 1 ? 'Continuer' : 'Envoyer mon inscription'}
+          <button type="submit" aria-busy={loading} className="btn-primary btn-lg flex-[2]" disabled={loading}>
+            <ButtonLabel loading={loading} loadingLabel="Envoi du dossier…">{step < STEPS.length - 1 ? 'Continuer' : 'Envoyer mon inscription'}</ButtonLabel>
           </button>
         </div>
       </form>

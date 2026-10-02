@@ -28,10 +28,11 @@ const MARKETPLACE = {
   annulee: { label: 'Annulée', tone: 'danger' },
 };
 
-export default function StatusBadge({ label, tone = 'neutral', className = '' }) {
+// `size="sm"` : badge compact pour les listes denses (historiques).
+export default function StatusBadge({ label, tone = 'neutral', size = 'md', className = '' }) {
   const style = TONES[tone] || TONES.neutral;
   return (
-    <span className={`badge ${style.className} ${className}`}>
+    <span className={`badge ${size === 'sm' ? 'gap-1 px-2 py-0.5 text-caption' : ''} ${style.className} ${className}`}>
       <span className={`status-dot ${style.dot}`} aria-hidden="true" />
       {label}
     </span>

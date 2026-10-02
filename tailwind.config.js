@@ -2,6 +2,10 @@
 // Light mode uniquement : aucune variante `dark:` n'est generee (darkMode absent
 // et aucune classe `dark` n'est jamais posee sur <html>).
 export default {
+  // Pas d'etat hover "colle" apres un tap sur ecran tactile.
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -11,6 +15,15 @@ export default {
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
         heading: ['Poppins', 'Inter', 'system-ui', 'sans-serif'],
+      },
+      // Tailles intermediaires de l'interface mobile (en plus de xs/sm/base/lg).
+      // Sans line-height imposee : elle reste heritee, comme avant les tokens.
+      fontSize: {
+        micro: '0.625rem', // 10px — pastilles de compteur
+        caption: '0.6875rem', // 11px — meta, micro-libelles (.eyebrow)
+        label: '0.8125rem', // 13px — texte d'interface secondaire, chips, btn-sm
+        lead: '0.9375rem', // 15px — noms, montants mis en avant
+        title: '1.0625rem', // 17px — titre de TopBar
       },
       colors: {
         // Bleu de marque TourShop (identique a client-app).

@@ -1,6 +1,7 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'sonner';
 import { setAvailability } from '../../store/slices/authSlice';
+import Switch from './Switch';
 
 // Disponibilite declarative (PUT /profile/availability). Si `false`, le livreur
 // ne peut plus proposer d'offre express ni etre assigne en groupage (§3).
@@ -18,21 +19,7 @@ export default function AvailabilitySwitch({ variant = 'card' }) {
     }
   };
 
-  const control = (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={disponible}
-      aria-label="Disponibilité"
-      onClick={toggle}
-      disabled={loading}
-      className={`relative h-8 w-14 shrink-0 rounded-full transition-colors duration-200 disabled:opacity-60 ${disponible ? 'bg-success-500' : 'bg-surface-300'}`}
-    >
-      <span
-        className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-transform duration-200 ${disponible ? 'translate-x-7' : 'translate-x-1'}`}
-      />
-    </button>
-  );
+  const control = <Switch checked={disponible} onChange={toggle} label="Disponibilité" disabled={loading} tone="success" />;
 
   if (variant === 'inline') return control;
 

@@ -17,7 +17,7 @@ export default function AuthShell({ title, subtitle, children, footer, backTo, w
         {showLogo && <img src={logo} alt="TourShop" className="mb-8 h-10 w-auto self-start" />}
 
         <h1 className="text-2xl font-bold text-surface-900">{title}</h1>
-        {subtitle && <p className="mt-1.5 text-[15px] leading-relaxed text-surface-500">{subtitle}</p>}
+        {subtitle && <p className="mt-1.5 text-lead leading-relaxed text-surface-500">{subtitle}</p>}
 
         <div className="mt-7 flex-1">{children}</div>
 

@@ -5,7 +5,7 @@ export default function FormField({ label, htmlFor, error, hint, children, optio
       {label && (
         <label htmlFor={htmlFor} className="label">
           {label}
-          {optional && <span className="ml-1 font-normal text-surface-400">(facultatif)</span>}
+          {optional && <span className="ml-1 font-normal text-surface-500">(facultatif)</span>}
         </label>
       )}
       {children}

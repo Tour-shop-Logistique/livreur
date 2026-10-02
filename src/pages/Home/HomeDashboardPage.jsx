@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import AvailabilitySwitch from '../../components/common/AvailabilitySwitch';
 import AbonnementBanner from '../../components/common/AbonnementBanner';
+import ReadinessCard from '../../components/common/ReadinessCard';
 import StatCard from '../../components/common/StatCard';
 import RealtimeStatus from '../../components/common/RealtimeStatus';
 import { expeditionRoute } from '../../components/missions/missionRoute';
@@ -32,9 +33,9 @@ function ActiveMissionHero({ mission, livraison }) {
     const target = mission.type === 'enlevement' && action?.key !== 'confirmAgencyDrop' ? route.from : route.to;
     const Icon = mission.type === 'enlevement' ? PackageOpen : PackageCheck;
     return (
-      <Link to={missionDetailPath(mission.id)} className="brand-gradient block overflow-hidden rounded-3xl p-5 text-white shadow-brand transition active:scale-[0.99]">
+      <Link to={missionDetailPath(mission.id)} className="brand-gradient block overflow-hidden rounded-2xl p-5 text-white shadow-brand transition active:scale-[0.99]">
         <div className="flex items-center justify-between">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold backdrop-blur">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold">
             <span className="status-dot animate-pulse-dot bg-accent-300" aria-hidden="true" /> Mission en cours
           </span>
           <span className="tabular text-sm font-semibold text-white/90">{formatPrice(mission.montant_final)}</span>
@@ -42,12 +43,12 @@ function ActiveMissionHero({ mission, livraison }) {
         <div className="mt-4 flex items-start gap-3">
           <span className="icon-tile h-11 w-11 bg-white/15"><Icon size={22} aria-hidden="true" /></span>
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-white/70">{MISSION_TYPE_LABEL[mission.type]} · {expeditionPhaseLabel(mission)}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-white/85">{MISSION_TYPE_LABEL[mission.type]} · {expeditionPhaseLabel(mission)}</p>
             <p className="mt-0.5 truncate text-lg font-semibold">{target?.title || 'Voir la mission'}</p>
-            {target?.detail && <p className="truncate text-sm text-white/75">{target.detail}</p>}
+            {target?.detail && <p className="truncate text-sm text-white/85">{target.detail}</p>}
           </div>
         </div>
-        <div className="mt-5 flex items-center justify-between rounded-2xl bg-white px-4 py-3 text-primary-700">
+        <div className="mt-5 flex items-center justify-between rounded-xl bg-white px-4 py-3 text-primary-700">
           <span className="text-sm font-semibold">{action?.label || 'Voir la mission'}</span>
           <ArrowRight size={18} aria-hidden="true" />
         </div>
@@ -58,10 +59,10 @@ function ActiveMissionHero({ mission, livraison }) {
   if (livraison) {
     const action = marketplaceAction(livraison);
     return (
-      <Link to={marketplaceDetailPath(livraison.id)} className="block overflow-hidden rounded-3xl bg-success-700 p-5 text-white shadow-raised transition active:scale-[0.99]">
+      <Link to={marketplaceDetailPath(livraison.id)} className="brand-gradient block overflow-hidden rounded-2xl p-5 text-white shadow-brand transition active:scale-[0.99]">
         <div className="flex items-center justify-between">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold">
-            <span className="status-dot animate-pulse-dot bg-white" aria-hidden="true" /> Livraison marketplace
+            <span className="status-dot animate-pulse-dot bg-accent-300" aria-hidden="true" /> Livraison marketplace
           </span>
           <span className="tabular text-sm font-semibold text-white/90">{formatPrice(livraison.montant_final)}</span>
         </div>
@@ -69,7 +70,7 @@ function ActiveMissionHero({ mission, livraison }) {
           <span className="icon-tile h-11 w-11 bg-white/15"><ShoppingBag size={22} aria-hidden="true" /></span>
           <p className="text-lg font-semibold">{livraison.statut === 'en_cours' ? "En route vers l'acheteur" : "À récupérer chez le vendeur"}</p>
         </div>
-        <div className="mt-5 flex items-center justify-between rounded-2xl bg-white px-4 py-3 text-success-700">
+        <div className="mt-5 flex items-center justify-between rounded-xl bg-white px-4 py-3 text-primary-700">
           <span className="text-sm font-semibold">{action?.label || 'Voir la livraison'}</span>
           <ArrowRight size={18} aria-hidden="true" />
         </div>
@@ -78,6 +79,34 @@ function ActiveMissionHero({ mission, livraison }) {
   }
 
   return null;
+}
+
+// Pas de mission en cours : carte entierement cliquable vers les missions
+// express quand le livreur est disponible.
+function IdleCard({ disponible, availableCount }) {
+  const content = (
+    <>
+      <span className={`icon-tile h-12 w-12 ${disponible ? 'bg-primary-50 text-primary-600' : 'bg-surface-100 text-surface-500'}`}>
+        {disponible ? <Zap size={22} aria-hidden="true" /> : <Coffee size={22} aria-hidden="true" />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold text-surface-900">Aucune mission en cours</p>
+        <p className="text-sm text-surface-500">
+          {disponible
+            ? `${availableCount} mission${availableCount > 1 ? 's' : ''} express ouverte${availableCount > 1 ? 's' : ''} aux offres.`
+            : 'Passez disponible pour recevoir des missions.'}
+        </p>
+      </div>
+    </>
+  );
+
+  if (!disponible) return <div className="card flex items-center gap-4 p-5">{content}</div>;
+  return (
+    <Link to={`${ROUTES.MISSIONS}?onglet=disponibles`} className="card flex items-center gap-4 p-5 transition hover:shadow-raised active:scale-[0.99]">
+      {content}
+      <ChevronRight size={20} className="shrink-0 text-primary-600" aria-hidden="true" />
+    </Link>
+  );
 }
 
 export default function HomeDashboardPage() {
@@ -120,32 +149,17 @@ export default function HomeDashboardPage() {
           </Link>
         </header>
 
-        <AvailabilitySwitch />
         <AbonnementBanner />
 
-        {/* Mission en cours */}
+        {/* Mission en cours : l'action du moment passe avant tout le reste. */}
         {activeMission || activeLivraison ? (
           <ActiveMissionHero mission={activeMission} livraison={!activeMission ? activeLivraison : null} />
         ) : (
-          <div className="card flex items-center gap-4 p-5">
-            <span className={`icon-tile h-12 w-12 ${disponible ? 'bg-primary-50 text-primary-600' : 'bg-surface-100 text-surface-500'}`}>
-              {disponible ? <Zap size={22} aria-hidden="true" /> : <Coffee size={22} aria-hidden="true" />}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold text-surface-900">Aucune mission en cours</p>
-              <p className="text-sm text-surface-500">
-                {disponible
-                  ? `${available.items.length} mission${available.items.length > 1 ? 's' : ''} express ouverte${available.items.length > 1 ? 's' : ''} aux offres.`
-                  : 'Passez disponible pour recevoir des missions.'}
-              </p>
-            </div>
-            {disponible && (
-              <Link to={`${ROUTES.MISSIONS}?onglet=disponibles`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-600 text-white" aria-label="Voir les missions disponibles">
-                <ArrowRight size={18} />
-              </Link>
-            )}
-          </div>
+          <IdleCard disponible={disponible} availableCount={available.items.length} />
         )}
+
+        <ReadinessCard />
+        <AvailabilitySwitch />
 
         {/* Solde */}
         <Link to={ROUTES.EARNINGS} className="card flex items-center gap-4 p-4 transition hover:shadow-raised active:scale-[0.99]">
@@ -154,7 +168,7 @@ export default function HomeDashboardPage() {
             <p className="text-xs font-medium text-surface-500">Solde disponible</p>
             <p className="tabular text-xl font-bold text-surface-900">{solde != null ? formatPrice(solde) : '—'}</p>
           </div>
-          <span className="flex items-center gap-0.5 text-[13px] font-semibold text-primary-600">
+          <span className="flex items-center gap-0.5 text-label font-semibold text-primary-600">
             Gains <ChevronRight size={16} aria-hidden="true" />
           </span>
         </Link>
@@ -168,12 +182,6 @@ export default function HomeDashboardPage() {
             <StatCard icon={Send} tone="primary" value={offersCount} label="Mes offres" to={`${ROUTES.MISSIONS}?onglet=disponibles`} />
           </div>
         </section>
-
-        {!disponible && (
-          <p className="rounded-xl bg-surface-100 px-4 py-3 text-xs leading-relaxed text-surface-600">
-            Hors ligne : vous ne pouvez ni proposer d'offre express, ni recevoir d'assignation du backoffice. Vos missions en cours restent accessibles.
-          </p>
-        )}
       </div>
     </div>
   );

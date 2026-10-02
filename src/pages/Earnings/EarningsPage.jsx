@@ -5,13 +5,17 @@ import {
   ArrowDownLeft, ArrowUpRight, RefreshCw, Wallet, WifiOff, Info, Landmark,
 } from 'lucide-react';
 import TopBar from '../../components/common/TopBar';
+import IconButton from '../../components/common/IconButton';
 import SkeletonCard from '../../components/common/SkeletonCard';
 import EmptyState from '../../components/common/EmptyState';
 import BottomSheet from '../../components/common/BottomSheet';
 import FormField from '../../components/common/FormField';
+import Callout from '../../components/common/Callout';
+import EarningsStats from '../../components/earnings/EarningsStats';
 import StatusBadge from '../../components/missions/StatusBadge';
 import { fetchBalance, fetchEarningsHistory, requestWithdrawal } from '../../store/slices/earningsSlice';
 import { formatPrice, formatDateTime } from '../../utils/format';
+import ButtonLabel from '../../components/common/ButtonLabel';
 
 // Solde reel des missions d'expedition (PARCOURS_LIVREUR_API.md §4.6).
 const RETRAIT_STATUT = {
@@ -58,12 +62,11 @@ function WithdrawSheet({ open, onClose, solde, loading, onSubmit }) {
         <FormField label="Moyen de versement" htmlFor="retrait-notes" optional hint="Ex. Orange Money +225 07 00 00 00 00">
           <input id="retrait-notes" className="input-field" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Mobile money et numéro" />
         </FormField>
-        <p className="flex gap-2 rounded-xl bg-surface-50 p-3 text-xs leading-relaxed text-surface-600">
-          <Info size={15} className="mt-0.5 shrink-0 text-primary-600" aria-hidden="true" />
+        <Callout tone="neutral" size="sm" icon={Info}>
           Votre solde n'est débité qu'une fois le versement effectué par votre backoffice de rattachement.
-        </p>
-        <button type="submit" className="btn-primary btn-lg w-full" disabled={loading}>
-          {loading ? 'Envoi…' : 'Envoyer la demande'}
+        </Callout>
+        <button type="submit" aria-busy={loading} className="btn-primary btn-lg w-full" disabled={loading}>
+          <ButtonLabel loading={loading} loadingLabel="Envoi…">Envoyer la demande</ButtonLabel>
         </button>
       </form>
     </BottomSheet>
@@ -74,6 +77,7 @@ export default function EarningsPage() {
   const dispatch = useDispatch();
   const { balance, history, withdrawal } = useSelector((state) => state.earnings);
   const userSolde = useSelector((state) => state.auth.user?.solde_livreur);
+  const marketplaceItems = useSelector((state) => state.marketplace.mine.items);
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const solde = balance.value ?? (userSolde != null ? Number(userSolde) : null);
@@ -111,31 +115,30 @@ export default function EarningsPage() {
     <div>
       <TopBar
         title="Mes gains"
-        right={(
-          <button type="button" onClick={load} className="flex h-11 w-11 items-center justify-center rounded-full text-surface-600 hover:bg-surface-100" aria-label="Actualiser">
-            <RefreshCw size={19} className={history.status === 'loading' ? 'animate-spin' : ''} />
-          </button>
-        )}
+        right={<IconButton icon={RefreshCw} size={19} label="Actualiser" onClick={load} spinning={history.status === 'loading'} />}
       />
 
       <div className="page-container space-y-5 py-4">
         {/* Solde */}
-        <section className="brand-gradient overflow-hidden rounded-3xl p-5 text-white shadow-brand">
-          <p className="text-sm font-medium text-white/75">Solde disponible</p>
-          <p className="tabular mt-1 font-heading text-3xl font-bold">{solde != null ? formatPrice(solde) : '—'}</p>
-          <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-2xl bg-white/10 p-3">
-              <p className="text-xs text-white/70">Gains cumulés</p>
-              <p className="tabular font-semibold">{formatPrice(totalCredits)}</p>
-            </div>
-            <div className="rounded-2xl bg-white/10 p-3">
-              <p className="text-xs text-white/70">Retraits en attente</p>
-              <p className="tabular font-semibold">{formatPrice(pendingWithdrawals)}</p>
-            </div>
+        <section className="card p-5">
+          <div className="flex items-center gap-2 text-sm font-medium text-surface-500">
+            <span className="icon-tile h-8 w-8 bg-success-50 text-success-600"><Wallet size={16} aria-hidden="true" /></span>
+            Solde disponible
           </div>
+          <p className="tabular mt-2 font-heading text-3xl font-bold text-surface-900">{solde != null ? formatPrice(solde) : '—'}</p>
+          <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+            <div className="rounded-xl bg-surface-50 p-3">
+              <dt className="text-xs text-surface-500">Gains cumulés</dt>
+              <dd className="tabular font-semibold text-surface-900">{formatPrice(totalCredits)}</dd>
+            </div>
+            <div className="rounded-xl bg-surface-50 p-3">
+              <dt className="text-xs text-surface-500">Retraits en attente</dt>
+              <dd className="tabular font-semibold text-surface-900">{formatPrice(pendingWithdrawals)}</dd>
+            </div>
+          </dl>
           <button
             type="button"
-            className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-white text-sm font-semibold text-primary-700 transition hover:bg-primary-50 active:scale-[0.98] disabled:opacity-60"
+            className="btn-primary mt-4 w-full"
             onClick={() => setSheetOpen(true)}
             disabled={!solde || solde <= 0}
           >
@@ -147,6 +150,10 @@ export default function EarningsPage() {
           <Info size={15} className="mt-px shrink-0 text-surface-400" aria-hidden="true" />
           Chaque mission d'expédition clôturée crédite automatiquement votre solde. Les courses marketplace sont réglées directement avec le vendeur et n'apparaissent pas ici.
         </p>
+
+        {history.loaded && history.status !== 'error' && (
+          <EarningsStats historyItems={history.items} marketplaceItems={marketplaceItems} />
+        )}
 
         {/* Historique */}
         <section>
@@ -182,7 +189,7 @@ export default function EarningsPage() {
                       <p className={`tabular text-sm font-bold ${credit ? 'text-success-700' : 'text-surface-900'}`}>
                         {credit ? '+' : '−'}{formatPrice(Math.abs(Number(h.montant)))}
                       </p>
-                      {!credit && statut && <StatusBadge label={statut.label} tone={statut.tone} className="py-0.5 text-[11px]" />}
+                      {!credit && statut && <StatusBadge label={statut.label} tone={statut.tone} size="sm" />}
                     </div>
                   </li>
                 );

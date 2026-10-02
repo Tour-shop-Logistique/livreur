@@ -7,16 +7,19 @@ import TopBar from '../../components/common/TopBar';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
 import StickyActionBar from '../../components/common/StickyActionBar';
+import Callout from '../../components/common/Callout';
 import { MarketplaceStatusBadge } from '../../components/missions/StatusBadge';
 import MissionStepper from '../../components/missions/MissionStepper';
 import ProofCaptureModal from '../../components/missions/ProofCaptureModal';
 import ConfirmSheet from '../../components/missions/ConfirmSheet';
+import MissionCompleteScreen from '../../components/missions/MissionCompleteScreen';
 import {
   fetchMarketplaceMine, startMarketplaceDelivery, validateMarketplaceDelivery, selectMarketplaceById,
 } from '../../store/slices/marketplaceSlice';
 import { MARKETPLACE_STEPS, marketplaceStepIndex, marketplaceAction } from '../../utils/missionFlow';
-import { formatPrice, formatDateTime } from '../../utils/format';
+import { formatPrice, formatDateTime, formatDuration } from '../../utils/format';
 import { ROUTES } from '../../routes';
+import ButtonLabel from '../../components/common/ButtonLabel';
 
 // Livraison marketplace (MARKETPLACE_ET_ABONNEMENT_API.md §7) :
 // assignee -> demarrer (en_cours) -> valider { code, preuve? } (terminee).
@@ -28,6 +31,7 @@ export default function MarketplaceDetailPage() {
   const bloque = useSelector((state) => state.abonnement.bloque);
   const [sheet, setSheet] = useState(null); // 'start' | 'validate'
   const [actionError, setActionError] = useState(null);
+  const [completed, setCompleted] = useState(null); // { duree } apres validation
 
   useEffect(() => {
     if (!livraison && !mine.loaded) dispatch(fetchMarketplaceMine());
@@ -74,7 +78,7 @@ export default function MarketplaceDetailPage() {
     setActionError(null);
     const result = await dispatch(validateMarketplaceDelivery({ id: livraison.id, code, photo }));
     if (validateMarketplaceDelivery.fulfilled.match(result)) {
-      toast.success('Livraison validée.');
+      setCompleted({ duree: livraison.assignee_le ? formatDuration(livraison.assignee_le) : null });
       setSheet(null);
       dispatch(fetchMarketplaceMine());
     } else {
@@ -104,18 +108,12 @@ export default function MarketplaceDetailPage() {
         </div>
 
         {bloque && !done && (
-          <Link to={ROUTES.ABONNEMENT} className="flex items-start gap-3 rounded-2xl border border-danger-200 bg-danger-50 p-4">
-            <Lock size={20} className="mt-0.5 shrink-0 text-danger-600" aria-hidden="true" />
-            <p className="text-sm text-danger-700">Abonnement marketplace en retard : les actions sont bloquées jusqu'à régularisation. <span className="font-semibold underline">Régulariser</span></p>
-          </Link>
+          <Callout to={ROUTES.ABONNEMENT} tone="danger" icon={Lock} title="Abonnement marketplace en retard">
+            Les actions sont bloquées jusqu'à régularisation. Touchez pour régulariser.
+          </Callout>
         )}
 
-        {done && (
-          <div className="flex items-start gap-3 rounded-2xl border border-success-200 bg-success-50 p-4">
-            <CircleCheckBig size={22} className="mt-0.5 shrink-0 text-success-600" aria-hidden="true" />
-            <p className="text-sm font-medium text-success-800">Livraison validée. Merci !</p>
-          </div>
-        )}
+        {done && <Callout tone="success" icon={CircleCheckBig} title="Livraison validée. Merci !" />}
 
         <section className="card p-4">
           <h2 className="mb-4 text-sm font-semibold text-surface-900">Progression</h2>
@@ -123,12 +121,9 @@ export default function MarketplaceDetailPage() {
         </section>
 
         {livraison.statut === 'en_cours' && (
-          <div className="flex items-start gap-3 rounded-2xl bg-surface-900 p-4 text-white">
-            <KeyRound size={20} className="mt-0.5 shrink-0 text-accent-300" aria-hidden="true" />
-            <p className="text-sm leading-relaxed text-white/85">
-              À la remise, l'acheteur vous communique un <strong className="text-white">code à 4 chiffres</strong>. Il est indispensable pour valider la livraison.
-            </p>
-          </div>
+          <Callout tone="emphasis" icon={KeyRound}>
+            À la remise, l'acheteur vous communique un <strong className="text-white">code à 4 chiffres</strong>. Il est indispensable pour valider la livraison.
+          </Callout>
         )}
 
         <p className="px-1 text-xs leading-relaxed text-surface-500">
@@ -138,8 +133,8 @@ export default function MarketplaceDetailPage() {
 
       {action && (
         <StickyActionBar hint={action.hint}>
-          <button type="button" className="btn-accent btn-lg w-full" onClick={() => { setActionError(null); setSheet(action.key); }} disabled={busy || bloque}>
-            {busy ? 'Envoi…' : action.label}
+          <button type="button" aria-busy={busy} className="btn-accent btn-lg w-full" onClick={() => { setActionError(null); setSheet(action.key); }} disabled={busy || bloque}>
+            <ButtonLabel loading={busy} loadingLabel="Envoi…">{action.label}</ButtonLabel>
           </button>
         </StickyActionBar>
       )}
@@ -172,6 +167,20 @@ export default function MarketplaceDetailPage() {
         submitLabel="Valider la livraison"
         photoLabel="Photo de preuve"
       />
+
+      {completed && (
+        <MissionCompleteScreen
+          title="Livraison terminée !"
+          description="L'article est remis à l'acheteur. Le prix de la course se règle directement avec le vendeur."
+          stats={[
+            { label: 'Course', value: formatPrice(livraison.montant_final) },
+            ...(completed.duree ? [{ label: 'Durée', value: completed.duree }] : []),
+          ]}
+          primary={{ label: "Retour à l'accueil", to: ROUTES.HOME }}
+          secondary={{ label: 'Mes livraisons marketplace', to: `${ROUTES.MISSIONS}?onglet=marketplace` }}
+          onClose={() => setCompleted(null)}
+        />
+      )}
     </div>
   );
 }

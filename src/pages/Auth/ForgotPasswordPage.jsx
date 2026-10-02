@@ -7,6 +7,7 @@ import AuthShell from '../../components/common/AuthShell';
 import FormField from '../../components/common/FormField';
 import { forgotPassword, clearAuthError } from '../../store/slices/authSlice';
 import { ROUTES } from '../../routes';
+import ButtonLabel from '../../components/common/ButtonLabel';
 
 export default function ForgotPasswordPage() {
   const dispatch = useDispatch();
@@ -33,7 +34,7 @@ export default function ForgotPasswordPage() {
       footer={<p className="text-center text-sm"><Link to={ROUTES.LOGIN} className="font-semibold text-primary-600">Retour à la connexion</Link></p>}
     >
       <div className="mb-6 flex justify-center">
-        <span className="icon-tile h-16 w-16 rounded-3xl bg-primary-50 text-primary-600"><KeyRound size={30} aria-hidden="true" /></span>
+        <span className="icon-tile h-16 w-16 rounded-2xl bg-primary-50 text-primary-600"><KeyRound size={30} aria-hidden="true" /></span>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         <FormField label="Email du compte" htmlFor="email" error={error}>
@@ -42,8 +43,8 @@ export default function ForgotPasswordPage() {
             className={`input-field ${error ? 'input-error' : ''}`} value={email} onChange={(e) => setEmail(e.target.value)} autoFocus required
           />
         </FormField>
-        <button type="submit" className="btn-primary btn-lg w-full" disabled={loading || !email}>
-          {loading ? 'Envoi…' : 'Recevoir un code'}
+        <button type="submit" aria-busy={loading} className="btn-primary btn-lg w-full" disabled={loading || !email}>
+          <ButtonLabel loading={loading} loadingLabel="Envoi…">Recevoir un code</ButtonLabel>
         </button>
       </form>
     </AuthShell>

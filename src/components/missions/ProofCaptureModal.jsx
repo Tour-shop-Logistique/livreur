@@ -4,6 +4,7 @@ import BottomSheet from '../common/BottomSheet';
 import SignaturePad from '../common/SignaturePad';
 import FilePicker from '../common/FilePicker';
 import CodeInput from '../common/CodeInput';
+import ButtonLabel from '../common/ButtonLabel';
 import useGeolocation from '../../hooks/useGeolocation';
 
 // Capture de preuve commune aux etapes du workflow :
@@ -53,8 +54,8 @@ export default function ProofCaptureModal({
       title={title}
       description={description}
       footer={(
-        <button type="submit" form="proof-form" className="btn-accent btn-lg w-full" disabled={!canSubmit}>
-          {loading ? <><Loader2 size={18} className="animate-spin" /> Envoi…</> : submitLabel}
+        <button type="submit" form="proof-form" className="btn-accent btn-lg w-full" disabled={!canSubmit} aria-busy={loading}>
+          <ButtonLabel loading={loading}>{submitLabel}</ButtonLabel>
         </button>
       )}
     >
@@ -68,13 +69,13 @@ export default function ProofCaptureModal({
         )}
 
         <div>
-          <p className="label">{photoLabel} <span className="font-normal text-surface-400">(facultatif)</span></p>
+          <p className="label">{photoLabel} <span className="font-normal text-surface-500">(facultatif)</span></p>
           <FilePicker id="proof-photo" value={photo} onChange={setPhoto} capture="environment" label="Prendre une photo" />
         </div>
 
         {withSignature && (
           <div>
-            <p className="label">Signature <span className="font-normal text-surface-400">(facultatif)</span></p>
+            <p className="label">Signature <span className="font-normal text-surface-500">(facultatif)</span></p>
             <SignaturePad onChange={setSignature} />
           </div>
         )}

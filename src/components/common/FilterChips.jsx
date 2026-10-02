@@ -11,7 +11,7 @@ export default function FilterChips({ options, value, onChange, className = '' }
             role="tab"
             aria-selected={active}
             onClick={() => onChange(opt.key)}
-            className={`flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium transition ${
+            className={`flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-label font-medium transition ${
               active
                 ? 'border-surface-900 bg-surface-900 text-white'
                 : 'border-surface-200 bg-white text-surface-600 hover:border-surface-300'
@@ -19,7 +19,7 @@ export default function FilterChips({ options, value, onChange, className = '' }
           >
             {opt.label}
             {opt.count > 0 && (
-              <span className={`tabular rounded-full px-1.5 text-[11px] font-semibold ${active ? 'bg-white/20' : 'bg-surface-100 text-surface-600'}`}>
+              <span className={`tabular rounded-full px-1.5 text-caption font-semibold ${active ? 'bg-white/20' : 'bg-surface-100 text-surface-600'}`}>
                 {opt.count}
               </span>
             )}

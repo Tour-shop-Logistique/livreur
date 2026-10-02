@@ -7,6 +7,7 @@ import AuthShell from '../../components/common/AuthShell';
 import CodeInput from '../../components/common/CodeInput';
 import { verifyEmailCode, resendVerification, clearAuthError } from '../../store/slices/authSlice';
 import { ROUTES } from '../../routes';
+import ButtonLabel from '../../components/common/ButtonLabel';
 
 // POST /verify-email. Meme verifie, le compte reste inactif jusqu'a la
 // validation des documents par le backoffice -> ecran d'attente.
@@ -43,14 +44,14 @@ export default function VerifyEmailPage() {
       backTo={ROUTES.LOGIN}
     >
       <div className="mb-6 flex justify-center">
-        <span className="icon-tile h-16 w-16 rounded-3xl bg-primary-50 text-primary-600"><MailCheck size={30} aria-hidden="true" /></span>
+        <span className="icon-tile h-16 w-16 rounded-2xl bg-primary-50 text-primary-600"><MailCheck size={30} aria-hidden="true" /></span>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <CodeInput length={6} value={code} onChange={setCode} autoFocus invalid={Boolean(error)} label="Code de vérification" />
         {error && <p className="field-error text-center" role="alert">{error}</p>}
-        <button type="submit" className="btn-primary btn-lg w-full" disabled={loading || code.length < 6 || !email}>
-          {loading ? 'Vérification…' : 'Valider'}
+        <button type="submit" aria-busy={loading} className="btn-primary btn-lg w-full" disabled={loading || code.length < 6 || !email}>
+          <ButtonLabel loading={loading} loadingLabel="Vérification…">Valider</ButtonLabel>
         </button>
       </form>
 

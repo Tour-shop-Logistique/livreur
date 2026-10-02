@@ -38,8 +38,8 @@ export default function OfferCard({ kind = 'express', title, subtitle, route, me
       <div className="divider mt-4 flex items-center justify-between gap-3 pt-3">
         {hasOffer ? (
           <div>
-            <p className="text-[11px] font-medium uppercase tracking-wide text-surface-400">Votre offre</p>
-            <p className="tabular text-[15px] font-bold text-surface-900">{formatPrice(myOffer)}</p>
+            <p className="eyebrow">Votre offre</p>
+            <p className="tabular text-lead font-bold text-surface-900">{formatPrice(myOffer)}</p>
           </div>
         ) : (
           <p className="text-xs leading-snug text-surface-500">{disabled && disabledReason ? disabledReason : 'Proposez votre tarif pour cette course.'}</p>

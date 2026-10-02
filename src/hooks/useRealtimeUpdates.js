@@ -6,13 +6,15 @@ import {
   getConnectionState, subscribeConnectionState, isRealtimeConfigured,
 } from '../services/echo';
 import {
-  fetchActiveMissions, fetchAvailableMissions, removeAvailable, clearOffer,
+  fetchActiveMissions, fetchAvailableMissions, removeAvailable, clearOffer, setIncoming,
 } from '../store/slices/missionsSlice';
 import {
   fetchMarketplaceAvailable, fetchMarketplaceMine, clearMarketplaceOffer,
 } from '../store/slices/marketplaceSlice';
 import { fetchAbonnementStatus } from '../store/slices/abonnementSlice';
 import { pushActivity } from '../store/slices/notificationsSlice';
+import { isActiveMarketplace } from '../utils/missionFlow';
+import { missionCity, sameCity, loadPreferredCity } from '../utils/cityFilter';
 import { ROUTES, missionDetailPath, marketplaceDetailPath } from '../routes';
 
 // Couche pratique au-dessus de useWebSocket (meme idee que client-app) :
@@ -96,15 +98,28 @@ export function useRealtimeWithNotifications(options = {}) {
 
     switch (eventType) {
       case 'mission.available': {
-        dispatch(fetchAvailableMissions());
-        const { disponible } = store.getState().auth.user || {};
         dispatch(pushActivity({
           kind: 'available',
           titre: meta.count > 1 ? `${meta.count} nouvelles missions express` : 'Nouvelle mission express disponible',
           message: 'Proposez votre tarif avant les autres livreurs.',
           link: `${ROUTES.MISSIONS}?onglet=disponibles`,
         }));
-        if (disponible) toast.info('Nouvelle mission express disponible', { description: 'Proposez votre tarif.' });
+        once(`mission.available.${id}`, async () => {
+          const res = await dispatch(fetchAvailableMissions());
+          const state = store.getState();
+          if (!state.auth.user?.disponible) return;
+          // Livreur libre (aucune mission en cours) : feuille "Nouvelle mission" ;
+          // en pleine course on ne l'interrompt pas, un toast suffit.
+          const free = state.missions.active.items.length === 0
+            && !state.marketplace.mine.items.some(isActiveMarketplace);
+          const mission = id != null && meta.count <= 1 && Array.isArray(res.payload)
+            ? res.payload.find((m) => String(m.id) === String(id))
+            : null;
+          const city = loadPreferredCity();
+          const inMyCity = !city || sameCity(missionCity(mission), city);
+          if (free && mission && inMyCity) dispatch(setIncoming(id));
+          else toast.info('Nouvelle mission express disponible', { description: 'Proposez votre tarif.' });
+        });
         break;
       }
 

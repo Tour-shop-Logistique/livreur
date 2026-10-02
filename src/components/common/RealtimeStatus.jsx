@@ -36,7 +36,7 @@ export default function RealtimeStatus({ variant = 'pill' }) {
   }
 
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${meta.pill}`} role="status" aria-label={`Temps réel : ${meta.label}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-caption font-semibold ${meta.pill}`} role="status" aria-label={`Temps réel : ${meta.label}`}>
       {connected ? <Radio size={12} aria-hidden="true" /> : <span className={`status-dot ${meta.dot}`} aria-hidden="true" />}
       {meta.label}
     </span>

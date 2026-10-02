@@ -1,0 +1,173 @@
+{
+  "projectId": "631d1158-c729-4879-861f-af8091a1d97e",
+  "shape": "package",
+  "pkg": "livreur-app",
+  "globalName": "TousShopLivreur",
+  "entry": "./.design-sync/ds-entry.js",
+  "buildCmd": "npx tailwindcss -c .design-sync/tailwind.ds.config.js -i .design-sync/ds.css -o .design-sync/.cache/ds.css",
+  "cssEntry": ".design-sync/.cache/ds.css",
+  "runtimeFontPrefixes": [
+    "Inter",
+    "Poppins"
+  ],
+  "provider": {
+    "component": "DsProvider"
+  },
+  "componentSrcMap": {
+    "AuthShell": "src/components/common/AuthShell.jsx",
+    "BottomSheet": "src/components/common/BottomSheet.jsx",
+    "TopBar": "src/components/common/TopBar.jsx",
+    "StickyActionBar": "src/components/common/StickyActionBar.jsx",
+    "EmptyState": "src/components/common/EmptyState.jsx",
+    "LoadingSpinner": "src/components/common/LoadingSpinner.jsx",
+    "SkeletonCard": "src/components/common/SkeletonCard.jsx",
+    "StatCard": "src/components/common/StatCard.jsx",
+    "FormField": "src/components/common/FormField.jsx",
+    "PasswordInput": "src/components/common/PasswordInput.jsx",
+    "PhoneInput": "src/components/common/PhoneInput.jsx",
+    "CodeInput": "src/components/common/CodeInput.jsx",
+    "FilePicker": "src/components/common/FilePicker.jsx",
+    "SignaturePad": "src/components/common/SignaturePad.jsx",
+    "FilterChips": "src/components/common/FilterChips.jsx",
+    "SegmentedTabs": "src/components/common/SegmentedTabs.jsx",
+    "CountrySelectSheet": "src/components/common/CountrySelectSheet.jsx",
+    "StatusBadge": "src/components/missions/StatusBadge.jsx",
+    "ExpeditionStatusBadge": "src/components/missions/StatusBadge.jsx",
+    "MarketplaceStatusBadge": "src/components/missions/StatusBadge.jsx",
+    "MissionCard": "src/components/missions/MissionCard.jsx",
+    "MissionStepper": "src/components/missions/MissionStepper.jsx",
+    "OfferCard": "src/components/missions/OfferCard.jsx",
+    "OfferSheet": "src/components/missions/OfferSheet.jsx",
+    "ConfirmSheet": "src/components/missions/ConfirmSheet.jsx",
+    "ContactCard": "src/components/missions/ContactCard.jsx",
+    "MarketplaceCard": "src/components/missions/MarketplaceCard.jsx",
+    "QuickActionsRow": "src/components/missions/QuickActionsRow.jsx",
+    "RouteLine": "src/components/missions/RouteLine.jsx"
+  },
+  "dtsPropsFor": {
+    "AuthShell": "title: React.ReactNode;\n  subtitle?: React.ReactNode;\n  children?: React.ReactNode;\n  /** Bottom slot (secondary links). */\n  footer?: React.ReactNode;\n  /** Route path for the back chevron (router Link; needs DsProvider). */\n  backTo?: string;\n  /** max-w-lg instead of max-w-sm. */\n  wide?: boolean;\n  /** TourShop logo above the title. Default true. */\n  showLogo?: boolean;",
+    "BottomSheet": "/** Renders nothing when false. Portals into #modal-root (DsProvider). */\n  open: boolean;\n  onClose: () => void;\n  title: React.ReactNode;\n  description?: React.ReactNode;\n  children?: React.ReactNode;\n  /** Sticky footer (action buttons). */\n  footer?: React.ReactNode;",
+    "TopBar": "title: React.ReactNode;\n  subtitle?: React.ReactNode;\n  /** Back chevron (needs DsProvider). */\n  back?: boolean;\n  right?: React.ReactNode;",
+    "StickyActionBar": "/** Buttons laid out in a row (flex gap-2). */\n  children: React.ReactNode;\n  /** Small centered line above the buttons. */\n  hint?: React.ReactNode;",
+    "EmptyState": "icon?: React.ComponentType<{ size?: number; className?: string }>;\n  title: React.ReactNode;\n  description?: React.ReactNode;\n  action?: React.ReactNode;\n  /** Icon tile color. Default 'default' (primary). */\n  tone?: 'default' | 'success' | 'warning' | 'error';\n  /** Less vertical padding. */\n  compact?: boolean;",
+    "LoadingSpinner": "/** Default \"Chargement…\". */\n  label?: string;\n  className?: string;",
+    "SkeletonCard": "/** Number of placeholder cards. Default 3. */\n  count?: number;",
+    "StatCard": "icon?: React.ComponentType<{ size?: number; className?: string }>;\n  label: React.ReactNode;\n  value: React.ReactNode;\n  hint?: React.ReactNode;\n  /** Icon tile color. Default 'primary'. */\n  tone?: 'primary' | 'accent' | 'success' | 'warning' | 'neutral';\n  /** Makes the card a router link (needs DsProvider). */\n  to?: string;",
+    "FormField": "label?: React.ReactNode;\n  htmlFor?: string;\n  /** Replaces the hint with a red error line. */\n  error?: React.ReactNode;\n  hint?: React.ReactNode;\n  /** The control (e.g. <input className=\"input-field\" />, PasswordInput, PhoneInput). */\n  children: React.ReactNode;\n  /** Appends \"(facultatif)\" to the label. */\n  optional?: boolean;\n  className?: string;",
+    "PasswordInput": "/** All <input> props pass through; renders an input-field with a show/hide toggle. */\n  id?: string;\n  name?: string;\n  value?: string;\n  placeholder?: string;\n  autoComplete?: string;\n  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;\n  className?: string;",
+    "PhoneInput": "id?: string;\n  /** ISO country code; defaults to CI. */\n  country?: string;\n  onCountryChange?: (code: string) => void;\n  /** National number. */\n  value: string;\n  onChange: (value: string) => void;\n  invalid?: boolean;\n  /** Disable the country picker. */\n  lockCountry?: boolean;\n  /** \"Numéro national : …\" hint. Default true. */\n  showHint?: boolean;",
+    "CodeInput": "/** Number of digit boxes. Default 4. */\n  length?: number;\n  value: string;\n  onChange: (value: string) => void;\n  autoFocus?: boolean;\n  invalid?: boolean;\n  /** Accessible group label. */\n  label?: string;",
+    "FilePicker": "/** Selected image; shows a preview with a remove button. */\n  value: File | null;\n  onChange: (file: File | null) => void;\n  label?: string;\n  /** Camera capture hint ('environment' | 'user'). */\n  capture?: 'environment' | 'user';\n  id?: string;\n  invalid?: boolean;",
+    "SignaturePad": "/** Receives a PNG data URL after each stroke, null when cleared. */\n  onChange?: (dataUrl: string | null) => void;\n  /** Placeholder shown while empty. */\n  label?: string;",
+    "FilterChips": "options: { key: string; label: React.ReactNode; count?: number }[];\n  value: string;\n  onChange: (key: string) => void;\n  className?: string;",
+    "SegmentedTabs": "tabs: { key: string; label: React.ReactNode; count?: number }[];\n  value: string;\n  onChange: (key: string) => void;",
+    "CountrySelectSheet": "open: boolean;\n  onClose: () => void;\n  currentCode?: string;\n  onSelect: (country: { code: string; nom: string; indicatif: string; flag: string }) => void;\n  title?: string;\n  description?: React.ReactNode;",
+    "StatusBadge": "label: React.ReactNode;\n  /** 'active' pulses (accent orange). Default 'neutral'. */\n  tone?: 'info' | 'active' | 'waiting' | 'success' | 'danger' | 'neutral';\n  className?: string;",
+    "ExpeditionStatusBadge": "/** Workflow phase of an expedition mission. */\n  phase: 'offer' | 'start' | 'pickup' | 'deposit' | 'deliver' | 'done' | 'cancelled';\n  className?: string;",
+    "MarketplaceStatusBadge": "statut: 'en_attente' | 'assignee' | 'en_cours' | 'terminee' | 'livree' | 'annulee';\n  className?: string;",
+    "MissionCard": "/** Assigned expedition mission (API shape). Phase and route are derived from it. Needs DsProvider (renders a Link). */\n  mission: {\n    id: string | number;\n    type: 'enlevement' | 'livraison';\n    mode: 'express' | 'groupage';\n    statut: 'en_attente' | 'assignee' | 'terminee' | 'annulee';\n    montant_final?: number;\n    assignee_le?: string;\n    expedition?: {\n      reference?: string;\n      statut_expedition?: string;\n      date_enlevement_client?: string;\n      expediteur?: { nom_prenom?: string; telephone?: string; adresse?: string; quartier?: string; ville?: string };\n      destinataire?: { nom_prenom?: string; telephone?: string; adresse?: string; quartier?: string; ville?: string };\n      agence?: { nom?: string; adresse?: string; ville?: string };\n    };\n  };",
+    "MissionStepper": "/** e.g. EXPEDITION_STEPS.enlevement, EXPEDITION_STEPS.livraison, MARKETPLACE_STEPS (exported). */\n  steps: { key: string; label: string }[];\n  /** Index of the last completed step; the next one is highlighted as in progress. */\n  current: number;",
+    "OfferCard": "/** 'marketplace' = green bag icon, 'express' = orange bolt. Default 'express'. */\n  kind?: 'express' | 'marketplace';\n  title: React.ReactNode;\n  subtitle?: React.ReactNode;\n  route?: { from: { label: string; title?: string; detail?: string }; to: { label: string; title?: string; detail?: string } };\n  /** Small facts row (weight, distance…). */\n  meta?: React.ReactNode;\n  /** Amount already offered (FCFA); switches to \"Offre envoyée\" + Modifier. */\n  myOffer?: number | null;\n  onOffer?: () => void;\n  disabled?: boolean;\n  disabledReason?: React.ReactNode;",
+    "OfferSheet": "open: boolean;\n  onClose: () => void;\n  title: React.ReactNode;\n  description?: React.ReactNode;\n  /** Prefills the amount; enables update/withdraw. */\n  currentOffer?: number | null;\n  onSubmit: (montant: number) => void;\n  onWithdraw?: () => void;\n  loading?: boolean;\n  /** Info note under the amount. */\n  note?: React.ReactNode;",
+    "ConfirmSheet": "open: boolean;\n  onClose: () => void;\n  onConfirm: () => void;\n  loading?: boolean;\n  title: React.ReactNode;\n  description?: React.ReactNode;\n  confirmLabel: React.ReactNode;\n  children?: React.ReactNode;\n  error?: React.ReactNode;",
+    "ContactCard": "/** Uppercase caption, e.g. \"Expéditeur\". */\n  role: React.ReactNode;\n  /** Renders nothing when null. Phone/address enable the call, SMS and route actions. */\n  contact: { nom?: string; telephone?: string; adresse?: string; quartier?: string; ville?: string; lat?: number; lng?: number } | null;\n  /** Accent ring (current step's contact). */\n  highlight?: boolean;\n  /** Building icon instead of a person. */\n  isAgency?: boolean;",
+    "MarketplaceCard": "/** Assigned marketplace delivery (API shape). Needs DsProvider (renders a Link). */\n  livraison: {\n    id: string | number;\n    mode: 'direct' | 'reseau';\n    statut: 'en_attente' | 'assignee' | 'en_cours' | 'terminee' | 'livree' | 'annulee';\n    montant_final?: number;\n    assignee_le?: string;\n    commande?: { id?: string | number; montant_articles?: number };\n  };",
+    "QuickActionsRow": "/** Adds Appeler (tel:) and SMS (sms:) buttons. */\n  phone?: string;\n  /** Adds an Itinéraire button. Renders nothing when both are missing. */\n  mapsUrl?: string;",
+    "RouteLine": "from: { label: string; title?: string; detail?: string };\n  to: { label: string; title?: string; detail?: string };\n  /** Smaller text, hides details. */\n  compact?: boolean;"
+  },
+  "overrides": {
+    "BottomSheet": {
+      "cardMode": "single",
+      "viewport": "420x560"
+    },
+    "CountrySelectSheet": {
+      "cardMode": "single",
+      "viewport": "420x640"
+    },
+    "OfferSheet": {
+      "cardMode": "single",
+      "viewport": "420x560"
+    },
+    "ConfirmSheet": {
+      "cardMode": "single",
+      "viewport": "420x420"
+    },
+    "AuthShell": {
+      "cardMode": "single",
+      "viewport": "420x640"
+    },
+    "TopBar": {
+      "cardMode": "column"
+    },
+    "StickyActionBar": {
+      "cardMode": "column"
+    },
+    "EmptyState": {
+      "cardMode": "column"
+    },
+    "LoadingSpinner": {
+      "cardMode": "column"
+    },
+    "SkeletonCard": {
+      "cardMode": "column"
+    },
+    "StatCard": {
+      "cardMode": "column"
+    },
+    "FormField": {
+      "cardMode": "column"
+    },
+    "PasswordInput": {
+      "cardMode": "column"
+    },
+    "PhoneInput": {
+      "cardMode": "column"
+    },
+    "CodeInput": {
+      "cardMode": "column"
+    },
+    "FilePicker": {
+      "cardMode": "column"
+    },
+    "SignaturePad": {
+      "cardMode": "column"
+    },
+    "FilterChips": {
+      "cardMode": "column"
+    },
+    "SegmentedTabs": {
+      "cardMode": "column"
+    },
+    "StatusBadge": {
+      "cardMode": "column"
+    },
+    "ExpeditionStatusBadge": {
+      "cardMode": "column"
+    },
+    "MarketplaceStatusBadge": {
+      "cardMode": "column"
+    },
+    "MissionCard": {
+      "cardMode": "column"
+    },
+    "MissionStepper": {
+      "cardMode": "column"
+    },
+    "OfferCard": {
+      "cardMode": "column"
+    },
+    "ContactCard": {
+      "cardMode": "column"
+    },
+    "MarketplaceCard": {
+      "cardMode": "column"
+    },
+    "QuickActionsRow": {
+      "cardMode": "column"
+    },
+    "RouteLine": {
+      "cardMode": "column"
+    }
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}

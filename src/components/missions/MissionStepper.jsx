@@ -27,7 +27,7 @@ export default function MissionStepper({ steps, current }) {
               {!last && <span className={`w-0.5 flex-1 ${done ? 'bg-success-500' : 'bg-surface-200'}`} style={{ minHeight: 20 }} aria-hidden="true" />}
             </div>
             <div className={`min-w-0 ${last ? '' : 'pb-4'} pt-1`}>
-              <p className={`text-sm ${done ? 'font-medium text-surface-800' : next ? 'font-semibold text-surface-900' : 'text-surface-400'}`}>
+              <p className={`text-sm ${done ? 'font-medium text-surface-800' : next ? 'font-semibold text-surface-900' : 'text-surface-500'}`}>
                 {step.label}
               </p>
               {next && <p className="text-xs font-medium text-accent-700">Étape en cours</p>}

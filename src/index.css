@@ -56,7 +56,7 @@
   }
 
   .btn-sm {
-    @apply min-h-10 rounded-lg px-3 py-2 text-[13px];
+    @apply min-h-10 rounded-lg px-3 py-2 text-label;
   }
 
   .btn-lg {
@@ -88,7 +88,7 @@
   }
 
   .label {
-    @apply mb-1.5 block text-[13px] font-medium text-surface-700;
+    @apply mb-1.5 block text-label font-medium text-surface-700;
   }
 
   .input-field {
@@ -109,6 +109,11 @@
 
   .section-title {
     @apply mb-2.5 px-1 text-xs font-semibold uppercase tracking-wider text-surface-500;
+  }
+
+  /* Micro-libelle au-dessus d'une valeur (role du contact, etape du trajet). */
+  .eyebrow {
+    @apply text-caption font-medium uppercase tracking-wide text-surface-500;
   }
 
   .page-container {

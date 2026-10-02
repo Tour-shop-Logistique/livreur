@@ -33,7 +33,7 @@ export default function CodeInput({ length = 4, value, onChange, autoFocus = fal
   };
 
   return (
-    <div className="flex justify-center gap-2.5" role="group" aria-label={label}>
+    <div className="flex justify-center gap-2" role="group" aria-label={label}>
       {digits.map((d, i) => (
         <input
           key={i}
@@ -48,9 +48,10 @@ export default function CodeInput({ length = 4, value, onChange, autoFocus = fal
           onFocus={(e) => e.target.select()}
           autoFocus={autoFocus && i === 0}
           aria-label={`${label}, chiffre ${i + 1}`}
-          className={`tabular h-14 w-12 rounded-xl border bg-white text-center text-2xl font-semibold text-surface-900 transition focus:outline-none focus:ring-4 ${
+          // flex-1 + max-w-12 : 6 cases tiennent sur un ecran de 320px.
+          className={`tabular h-14 w-0 min-w-0 max-w-12 flex-1 rounded-xl border bg-white text-center text-2xl font-semibold text-surface-900 transition focus:outline-none focus:ring-4 ${
             invalid
-              ? 'border-danger-400 focus:border-danger-500 focus:ring-danger-100'
+              ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-100'
               : 'border-surface-200 focus:border-primary-500 focus:ring-primary-100'
           }`}
         />

@@ -2,20 +2,24 @@ import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'sonner';
 import {
-  ShieldCheck, AlertTriangle, Clock, Hourglass, Receipt, RefreshCw, Smartphone, Banknote, Landmark, CreditCard, Wallet, XCircle,
+  ShieldCheck, AlertTriangle, Clock, Hourglass, Receipt, RefreshCw, Smartphone, Banknote, Landmark, CreditCard, Wallet, XCircle, Info,
 } from 'lucide-react';
 import TopBar from '../../components/common/TopBar';
+import IconButton from '../../components/common/IconButton';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
 import BottomSheet from '../../components/common/BottomSheet';
 import FormField from '../../components/common/FormField';
+import Callout from '../../components/common/Callout';
 import FilePicker from '../../components/common/FilePicker';
+import ChoiceGroup from '../../components/common/ChoiceGroup';
 import StatusBadge from '../../components/missions/StatusBadge';
 import StickyActionBar from '../../components/common/StickyActionBar';
 import {
   fetchAbonnementStatus, fetchAbonnementHistory, declareAbonnementPayment,
 } from '../../store/slices/abonnementSlice';
 import { formatDate, formatPrice } from '../../utils/format';
+import ButtonLabel from '../../components/common/ButtonLabel';
 
 // Abonnement marketplace (MARKETPLACE_ET_ABONNEMENT_API.md §9). Declarer un
 // paiement ne debloque PAS : seule la validation backoffice le fait.
@@ -57,8 +61,8 @@ function DeclareSheet({ open, onClose, echeance, loading, onSubmit }) {
       title="Déclarer mon paiement"
       description={echeance ? `Échéance de ${formatPrice(echeance.montant)} au ${formatDate(echeance.periode_fin)}` : undefined}
       footer={(
-        <button type="submit" form="declare-form" className="btn-primary btn-lg w-full" disabled={loading}>
-          {loading ? 'Envoi…' : 'Envoyer la déclaration'}
+        <button type="submit" aria-busy={loading} form="declare-form" className="btn-primary btn-lg w-full" disabled={loading}>
+          <ButtonLabel loading={loading} loadingLabel="Envoi…">Envoyer la déclaration</ButtonLabel>
         </button>
       )}
     >
@@ -68,21 +72,7 @@ function DeclareSheet({ open, onClose, echeance, loading, onSubmit }) {
         onSubmit={(e) => { e.preventDefault(); onSubmit({ methode, referenceTransaction: reference.trim(), preuve }); }}
       >
         <FormField label="Moyen de paiement utilisé">
-          <div className="grid grid-cols-3 gap-2">
-            {METHODES.map((m) => (
-              <button
-                key={m.value}
-                type="button"
-                aria-pressed={methode === m.value}
-                onClick={() => setMethode(m.value)}
-                className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl border text-xs font-semibold transition ${
-                  methode === m.value ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-surface-200 bg-white text-surface-600'
-                }`}
-              >
-                <m.icon size={18} aria-hidden="true" /> {m.label}
-              </button>
-            ))}
-          </div>
+          <ChoiceGroup label="Moyen de paiement utilisé" options={METHODES} value={methode} onChange={setMethode} columns={3} />
         </FormField>
         <FormField label="Référence de la transaction" htmlFor="ref" optional>
           <input id="ref" maxLength={255} className="input-field" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Ex. MP240930.1234.A56789" />
@@ -90,9 +80,9 @@ function DeclareSheet({ open, onClose, echeance, loading, onSubmit }) {
         <FormField label="Capture de la transaction" optional>
           <FilePicker id="preuve-abonnement" value={preuve} onChange={setPreuve} label="Ajouter une capture d'écran" />
         </FormField>
-        <p className="rounded-xl bg-surface-50 p-3 text-xs leading-relaxed text-surface-600">
+        <Callout tone="neutral" size="sm" icon={Info}>
           Votre accès marketplace sera rétabli après vérification par votre backoffice de rattachement.
-        </p>
+        </Callout>
       </form>
     </BottomSheet>
   );
@@ -131,11 +121,7 @@ export default function AbonnementPage() {
     }
   };
 
-  const refreshButton = (
-    <button type="button" onClick={load} className="flex h-11 w-11 items-center justify-center rounded-full text-surface-600 hover:bg-surface-100" aria-label="Actualiser">
-      <RefreshCw size={19} className={status === 'loading' ? 'animate-spin' : ''} />
-    </button>
-  );
+  const refreshButton = <IconButton icon={RefreshCw} size={19} label="Actualiser" onClick={load} spinning={status === 'loading'} />;
 
   if (!loaded) {
     return (
@@ -155,12 +141,6 @@ export default function AbonnementPage() {
     hero = { tone: 'success', icon: ShieldCheck, title: 'Abonnement à jour', text: 'Vous pouvez livrer sur la marketplace sans restriction.' };
   }
 
-  const heroStyles = {
-    danger: 'border-danger-200 bg-danger-50 text-danger-800',
-    warning: 'border-warning-200 bg-warning-50 text-warning-800',
-    success: 'border-success-200 bg-success-50 text-success-800',
-  };
-
   return (
     <div className="flex flex-1 flex-col">
       <TopBar title="Abonnement marketplace" back right={refreshButton} />
@@ -175,15 +155,7 @@ export default function AbonnementPage() {
           />
         ) : (
           <>
-            {hero && (
-              <div className={`flex items-start gap-3 rounded-2xl border p-4 ${heroStyles[hero.tone]}`}>
-                <hero.icon size={22} className="mt-0.5 shrink-0" aria-hidden="true" />
-                <div>
-                  <p className="font-semibold">{hero.title}</p>
-                  <p className="mt-0.5 text-sm opacity-90">{hero.text}</p>
-                </div>
-              </div>
-            )}
+            {hero && <Callout tone={hero.tone} icon={hero.icon} title={hero.title}>{hero.text}</Callout>}
 
             <section className="card p-4">
               <div className="flex items-center justify-between">
@@ -201,18 +173,14 @@ export default function AbonnementPage() {
               )}
 
               {enValidation && (
-                <div className="mt-3 flex items-start gap-2.5 rounded-xl bg-warning-50 p-3 text-sm text-warning-800">
-                  <Hourglass size={17} className="mt-0.5 shrink-0" aria-hidden="true" />
+                <Callout tone="warning" size="sm" icon={Hourglass} className="mt-3">
                   Paiement déclaré, en attente de validation par le backoffice.
-                </div>
+                </Callout>
               )}
               {rejete && (
-                <div className="mt-3 flex items-start gap-2.5 rounded-xl bg-danger-50 p-3 text-sm text-danger-700">
-                  <XCircle size={17} className="mt-0.5 shrink-0" aria-hidden="true" />
-                  <span>
-                    Déclaration rejetée{paiement.commentaire_backoffice ? ` : « ${paiement.commentaire_backoffice} »` : '.'} Vous pouvez déclarer à nouveau.
-                  </span>
-                </div>
+                <Callout tone="danger" size="sm" icon={XCircle} className="mt-3">
+                  Déclaration rejetée{paiement.commentaire_backoffice ? ` : « ${paiement.commentaire_backoffice} »` : '.'} Vous pouvez déclarer à nouveau.
+                </Callout>
               )}
             </section>
 
@@ -233,8 +201,8 @@ export default function AbonnementPage() {
                           </p>
                         </div>
                         <div className="flex shrink-0 flex-col items-end gap-1">
-                          <StatusBadge {...(ECHEANCE_STATUT[e.statut] || { label: e.statut })} className="py-0.5 text-[11px]" />
-                          {p && e.statut !== 'payee' && <StatusBadge {...(PAIEMENT_STATUT[p.statut] || { label: p.statut })} className="py-0.5 text-[11px]" />}
+                          <StatusBadge {...(ECHEANCE_STATUT[e.statut] || { label: e.statut })} size="sm" />
+                          {p && e.statut !== 'payee' && <StatusBadge {...(PAIEMENT_STATUT[p.statut] || { label: p.statut })} size="sm" />}
                         </div>
                       </li>
                     );

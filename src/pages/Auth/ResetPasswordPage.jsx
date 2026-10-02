@@ -8,6 +8,7 @@ import PasswordInput from '../../components/common/PasswordInput';
 import CodeInput from '../../components/common/CodeInput';
 import { verifyResetCode, resetPassword, clearAuthError } from '../../store/slices/authSlice';
 import { ROUTES } from '../../routes';
+import ButtonLabel from '../../components/common/ButtonLabel';
 
 export default function ResetPasswordPage() {
   const dispatch = useDispatch();
@@ -58,8 +59,8 @@ export default function ResetPasswordPage() {
         <FormField label="Confirmer le mot de passe" htmlFor="password-confirmation">
           <PasswordInput id="password-confirmation" autoComplete="new-password" value={form.passwordConfirmation} onChange={(e) => set('passwordConfirmation')(e.target.value)} required />
         </FormField>
-        <button type="submit" className="btn-primary btn-lg w-full" disabled={loading || form.code.length < 6}>
-          {loading ? 'Réinitialisation…' : 'Réinitialiser'}
+        <button type="submit" aria-busy={loading} className="btn-primary btn-lg w-full" disabled={loading || form.code.length < 6}>
+          <ButtonLabel loading={loading} loadingLabel="Réinitialisation…">Réinitialiser</ButtonLabel>
         </button>
       </form>
     </AuthShell>

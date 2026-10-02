@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { FlaskConical, Hourglass, MailWarning, AlertCircle } from 'lucide-react';
 import AuthShell from '../../components/common/AuthShell';
 import FormField from '../../components/common/FormField';
+import Callout from '../../components/common/Callout';
 import PasswordInput from '../../components/common/PasswordInput';
 import PhoneInput from '../../components/common/PhoneInput';
 import SegmentedTabs from '../../components/common/SegmentedTabs';
@@ -12,6 +13,7 @@ import { loginLivreur, devBypassLogin, clearAuthError } from '../../store/slices
 import { ROUTES } from '../../routes';
 import { findCountry, DEFAULT_COUNTRY } from '../../utils/countries';
 import { nationalPhone } from '../../utils/phone';
+import ButtonLabel from '../../components/common/ButtonLabel';
 
 // Dernier pays choisi a la connexion (confort : pre-selection au prochain lancement).
 const COUNTRY_KEY = 'livreur_login_country';
@@ -99,31 +101,33 @@ export default function LoginPage() {
       )}
     >
       {errorKind === 'inactive' && (
-        <div className="mb-5 flex gap-3 rounded-2xl border border-warning-200 bg-warning-50 p-4">
-          <Hourglass size={20} className="mt-0.5 shrink-0 text-warning-700" aria-hidden="true" />
-          <div className="text-sm">
-            <p className="font-semibold text-warning-800">Compte en cours de validation</p>
-            <p className="mt-0.5 text-warning-700">Notre équipe vérifie vos documents. Vous pourrez vous connecter dès leur validation.</p>
-            <Link to={ROUTES.PENDING_VALIDATION} state={{ credentials: credentials() }} className="mt-2 inline-block font-semibold text-warning-800 underline underline-offset-2">
+        <Callout
+          tone="warning"
+          icon={Hourglass}
+          title="Compte en cours de validation"
+          className="mb-5"
+          action={(
+            <Link to={ROUTES.PENDING_VALIDATION} state={{ credentials: credentials() }} className="font-semibold text-warning-800 underline underline-offset-2">
               Suivre ma demande
             </Link>
-          </div>
-        </div>
+          )}
+        >
+          Notre équipe vérifie vos documents. Vous pourrez vous connecter dès leur validation.
+        </Callout>
       )}
       {errorKind === 'unverified' && (
-        <div className="mb-5 flex gap-3 rounded-2xl border border-primary-200 bg-primary-50 p-4">
-          <MailWarning size={20} className="mt-0.5 shrink-0 text-primary-700" aria-hidden="true" />
-          <div className="text-sm">
-            <p className="font-semibold text-primary-800">Email non vérifié</p>
-            <p className="mt-0.5 text-primary-700">Saisissez le code reçu par email pour continuer.</p>
-            <Link to={ROUTES.VERIFY_EMAIL} className="mt-2 inline-block font-semibold text-primary-800 underline underline-offset-2">Vérifier mon email</Link>
-          </div>
-        </div>
+        <Callout
+          tone="info"
+          icon={MailWarning}
+          title="Email non vérifié"
+          className="mb-5"
+          action={<Link to={ROUTES.VERIFY_EMAIL} className="font-semibold text-primary-800 underline underline-offset-2">Vérifier mon email</Link>}
+        >
+          Saisissez le code reçu par email pour continuer.
+        </Callout>
       )}
       {error && !errorKind && (
-        <div className="mb-5 flex items-start gap-2.5 rounded-xl bg-danger-50 p-3.5 text-sm text-danger-700" role="alert">
-          <AlertCircle size={18} className="mt-px shrink-0" aria-hidden="true" /> {error}
-        </div>
+        <Callout tone="danger" icon={AlertCircle} role="alert" className="mb-5">{error}</Callout>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -150,8 +154,8 @@ export default function LoginPage() {
           <Link to={ROUTES.FORGOT_PASSWORD} className="text-sm font-medium text-primary-600 hover:text-primary-700">Mot de passe oublié ?</Link>
         </div>
 
-        <button type="submit" className="btn-primary btn-lg w-full" disabled={loading}>
-          {loading ? 'Connexion…' : 'Se connecter'}
+        <button type="submit" aria-busy={loading} className="btn-primary btn-lg w-full" disabled={loading}>
+          <ButtonLabel loading={loading} loadingLabel="Connexion…">Se connecter</ButtonLabel>
         </button>
       </form>
     </AuthShell>

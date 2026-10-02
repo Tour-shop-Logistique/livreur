@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   LogOut, Bike, Car, ChevronRight, UserRound, Lock, BellRing, ShieldCheck, BadgeCheck, Hourglass, XCircle, IdCard, Mail, Phone,
@@ -9,7 +9,10 @@ import TopBar from '../../components/common/TopBar';
 import AvailabilitySwitch from '../../components/common/AvailabilitySwitch';
 import BottomSheet from '../../components/common/BottomSheet';
 import FormField from '../../components/common/FormField';
+import Callout from '../../components/common/Callout';
 import PasswordInput from '../../components/common/PasswordInput';
+import Switch from '../../components/common/Switch';
+import ChoiceGroup from '../../components/common/ChoiceGroup';
 import StatusBadge from '../../components/missions/StatusBadge';
 import {
   logout, updateVehicle, updateProfile, changePassword,
@@ -17,12 +20,18 @@ import {
 import usePushSubscription from '../../hooks/usePushSubscription';
 import { ROUTES } from '../../routes';
 import { fullName, initials, formatDate } from '../../utils/format';
+import ButtonLabel from '../../components/common/ButtonLabel';
 
 const KYC = {
   valide: { label: 'Identité vérifiée', tone: 'success', icon: BadgeCheck },
   en_attente: { label: 'Vérification en cours', tone: 'waiting', icon: Hourglass },
   rejete: { label: 'Documents rejetés', tone: 'danger', icon: XCircle },
 };
+
+const VEHICULES = [
+  { value: 'moto', label: 'Moto', icon: Bike },
+  { value: 'voiture', label: 'Voiture', icon: Car },
+];
 
 const PIECE_LABEL = { cni: "Carte d'identité", passeport: 'Passeport', permis_conduire: 'Permis de conduire' };
 
@@ -81,21 +90,9 @@ function VehicleSheet({ open, onClose, livreur }) {
   return (
     <BottomSheet open={open} onClose={onClose} title="Mon véhicule" description="Ces informations ne nécessitent pas de nouvelle vérification.">
       <form onSubmit={submit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          {[{ v: 'moto', l: 'Moto', i: Bike }, { v: 'voiture', l: 'Voiture', i: Car }].map((o) => (
-            <button
-              key={o.v}
-              type="button"
-              aria-pressed={form.typeVehicule === o.v}
-              onClick={() => set('typeVehicule')(o.v)}
-              className={`flex min-h-16 items-center justify-center gap-2 rounded-xl border-2 text-sm font-semibold transition ${
-                form.typeVehicule === o.v ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-surface-200 text-surface-600'
-              }`}
-            >
-              <o.i size={20} aria-hidden="true" /> {o.l}
-            </button>
-          ))}
-        </div>
+        <FormField label="Type de véhicule">
+          <ChoiceGroup label="Type de véhicule" options={VEHICULES} value={form.typeVehicule} onChange={set('typeVehicule')} />
+        </FormField>
         <FormField label="Immatriculation" htmlFor="v-num" error={errors?.numero_vehicule?.[0]}>
           <input id="v-num" className="input-field uppercase" value={form.numeroVehicule || ''} onChange={set('numeroVehicule')} />
         </FormField>
@@ -106,7 +103,7 @@ function VehicleSheet({ open, onClose, livreur }) {
           <input id="v-zone" type="number" min="0" inputMode="numeric" className="input-field" value={form.zoneDeLivraisonKm} onChange={set('zoneDeLivraisonKm')} />
         </FormField>
         {errors?.general && <p className="field-error">{errors.general[0]}</p>}
-        <button type="submit" className="btn-primary btn-lg w-full" disabled={loading}>{loading ? 'Enregistrement…' : 'Enregistrer'}</button>
+        <button type="submit" aria-busy={loading} className="btn-primary btn-lg w-full" disabled={loading}><ButtonLabel loading={loading} loadingLabel="Enregistrement…">Enregistrer</ButtonLabel></button>
       </form>
     </BottomSheet>
   );
@@ -162,7 +159,7 @@ function InfoSheet({ open, onClose, user }) {
           <input id="p-email" type="email" inputMode="email" className="input-field" value={form.email || ''} onChange={set('email')} required />
         </FormField>
         {errors?.general && <p className="field-error">{errors.general[0]}</p>}
-        <button type="submit" className="btn-primary btn-lg w-full" disabled={loading}>{loading ? 'Enregistrement…' : 'Enregistrer'}</button>
+        <button type="submit" aria-busy={loading} className="btn-primary btn-lg w-full" disabled={loading}><ButtonLabel loading={loading} loadingLabel="Enregistrement…">Enregistrer</ButtonLabel></button>
       </form>
     </BottomSheet>
   );
@@ -209,7 +206,7 @@ function PasswordSheet({ open, onClose }) {
           <PasswordInput id="pw-confirm" autoComplete="new-password" value={form.passwordConfirmation} onChange={set('passwordConfirmation')} required />
         </FormField>
         {errors?.general && <p className="field-error">{errors.general[0]}</p>}
-        <button type="submit" className="btn-primary btn-lg w-full" disabled={loading}>{loading ? 'Modification…' : 'Modifier le mot de passe'}</button>
+        <button type="submit" aria-busy={loading} className="btn-primary btn-lg w-full" disabled={loading}><ButtonLabel loading={loading} loadingLabel="Modification…">Modifier le mot de passe</ButtonLabel></button>
       </form>
     </BottomSheet>
   );
@@ -223,7 +220,15 @@ export default function ProfilePage() {
   const kyc = KYC[livreur?.statut_validation];
   const push = usePushSubscription();
   const [sheet, setSheet] = useState(null);
+  const [params, setParams] = useSearchParams();
   const VehicleIcon = livreur?.type_vehicule === 'voiture' ? Car : Bike;
+
+  // Lien direct depuis l'accueil ("Pret a livrer") : /profil?modifier=vehicule.
+  useEffect(() => {
+    if (params.get('modifier') !== 'vehicule') return;
+    setSheet('vehicle');
+    setParams({}, { replace: true });
+  }, [params, setParams]);
 
   const handleLogout = async () => {
     await dispatch(logout());
@@ -268,7 +273,7 @@ export default function ProfilePage() {
             <p className="mt-3 flex items-center gap-1.5 text-xs text-success-700"><ShieldCheck size={14} aria-hidden="true" /> Compte validé le {formatDate(livreur.valide_le)}</p>
           )}
           {livreur?.statut_validation === 'rejete' && livreur.commentaire_rejet && (
-            <p className="mt-3 rounded-xl bg-danger-50 p-3 text-xs text-danger-700">Motif : {livreur.commentaire_rejet}</p>
+            <Callout tone="danger" size="sm" icon={XCircle} className="mt-3">Motif : {livreur.commentaire_rejet}</Callout>
           )}
         </section>
 
@@ -291,17 +296,7 @@ export default function ProfilePage() {
                   <p className="text-sm font-medium text-surface-900">Notifications push</p>
                   <p className="text-xs text-surface-500">Nouvelles missions, offres acceptées</p>
                 </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={push.enabled}
-                  aria-label="Notifications push"
-                  onClick={togglePush}
-                  disabled={push.loading}
-                  className={`relative h-8 w-14 shrink-0 rounded-full transition-colors disabled:opacity-60 ${push.enabled ? 'bg-primary-600' : 'bg-surface-300'}`}
-                >
-                  <span className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-transform ${push.enabled ? 'translate-x-7' : 'translate-x-1'}`} />
-                </button>
+                <Switch checked={push.enabled} onChange={togglePush} label="Notifications push" disabled={push.loading} />
               </div>
             )}
           </div>
@@ -316,7 +311,7 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        <p className="pb-2 text-center text-xs text-surface-400">TourShop Livreur · v{import.meta.env.VITE_APP_VERSION || '1.0.0'}</p>
+        <p className="pb-2 text-center text-xs text-surface-500">TourShop Livreur · v{import.meta.env.VITE_APP_VERSION || '1.0.0'}</p>
       </div>
 
       <VehicleSheet open={sheet === 'vehicle'} onClose={() => setSheet(null)} livreur={livreur} />

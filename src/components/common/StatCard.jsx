@@ -17,17 +17,17 @@ export default function StatCard({ icon: Icon, label, value, hint, tone = 'prima
       <div className="mt-3 min-w-0">
         <p className="tabular truncate text-xl font-bold leading-tight text-surface-900">{value}</p>
         <p className="mt-0.5 truncate text-xs font-medium text-surface-500">{label}</p>
-        {hint && <p className="mt-1 truncate text-[11px] text-surface-400">{hint}</p>}
+        {hint && <p className="mt-1 truncate text-caption text-surface-500">{hint}</p>}
       </div>
     </>
   );
 
   if (to) {
     return (
-      <Link to={to} className="card block p-4 transition hover:shadow-raised active:scale-[0.98]">
+      <Link to={to} className="card block p-3.5 transition hover:shadow-raised active:scale-[0.98]">
         {content}
       </Link>
     );
   }
-  return <div className="card p-4">{content}</div>;
+  return <div className="card p-3.5">{content}</div>;
 }

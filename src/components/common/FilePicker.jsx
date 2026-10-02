@@ -52,12 +52,12 @@ export default function FilePicker({ value, onChange, label = 'Ajouter une photo
         <label
           htmlFor={id}
           className={`flex min-h-28 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed bg-surface-50 px-4 py-5 text-center transition hover:bg-primary-50/50 ${
-            invalid ? 'border-danger-400' : 'border-surface-300 hover:border-primary-300'
+            invalid ? 'border-danger-500' : 'border-surface-300 hover:border-primary-300'
           }`}
         >
           <span className="icon-tile h-10 w-10 bg-white text-primary-600 shadow-card"><Icon size={20} aria-hidden="true" /></span>
           <span className="text-sm font-medium text-surface-700">{label}</span>
-          <span className="text-xs text-surface-400">JPEG, PNG ou WEBP · 5 Mo max</span>
+          <span className="text-xs text-surface-500">JPEG, PNG ou WEBP · 5 Mo max</span>
         </label>
       )}
       <input id={id} type="file" accept={ACCEPT} capture={capture} className="sr-only" onChange={handle} />

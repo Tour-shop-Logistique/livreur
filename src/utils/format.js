@@ -34,6 +34,32 @@ export const formatRelative = (value) => {
   return d ? formatDistanceToNow(d, { addSuffix: true, locale: fr }) : '';
 };
 
+// Forme courte pour les listes : "à l'instant", "5 min", "2 h", "hier", "3 j", "12 sept.".
+export const formatRelativeShort = (value) => {
+  const d = toDate(value);
+  if (!d) return '';
+  const minutes = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (minutes < 1) return "à l'instant";
+  if (minutes < 60) return `${minutes} min`;
+  if (isToday(d)) return `${Math.floor(minutes / 60)} h`;
+  if (isYesterday(d)) return 'hier';
+  const days = Math.floor(minutes / 1440);
+  return days < 7 ? `${days} j` : format(d, 'd MMM', { locale: fr });
+};
+
+// Duree ecoulee depuis `from` : "28 min", "1 h 05", "2 j 3 h".
+export const formatDuration = (from, to = new Date()) => {
+  const start = toDate(from);
+  const end = toDate(to);
+  if (!start || !end || end < start) return '—';
+  const minutes = Math.max(1, Math.round((end - start) / 60000));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} h ${String(minutes % 60).padStart(2, '0')}`;
+  const days = Math.floor(hours / 24);
+  return hours % 24 ? `${days} j ${hours % 24} h` : `${days} j`;
+};
+
 export const fullName = (user) =>
   [user?.prenoms, user?.nom].filter(Boolean).join(' ') || user?.name || 'Livreur';
 

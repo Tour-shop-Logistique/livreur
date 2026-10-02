@@ -15,8 +15,8 @@ export default function ContactCard({ role, contact, highlight = false, isAgency
           <Icon size={19} aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-surface-400">{role}</p>
-          <p className="truncate text-[15px] font-semibold text-surface-900">{contact.nom || 'Non renseigné'}</p>
+          <p className="eyebrow">{role}</p>
+          <p className="truncate text-lead font-semibold text-surface-900">{contact.nom || 'Non renseigné'}</p>
           {contact.telephone && <p className="tabular text-sm text-surface-600">{contact.telephone}</p>}
           {address && (
             <p className="mt-1.5 flex items-start gap-1.5 text-sm leading-snug text-surface-600">

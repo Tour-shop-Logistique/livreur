@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import BottomNav from '../components/common/BottomNav';
 import DevBypassBanner from '../components/common/DevBypassBanner';
+import NewMissionSheet from '../components/missions/NewMissionSheet';
 
 export default function MobileLayout() {
   return (
@@ -10,6 +11,8 @@ export default function MobileLayout() {
         <Outlet />
       </main>
       <BottomNav />
+      {/* Hors des ecrans de detail : on n'interrompt jamais une mission en cours. */}
+      <NewMissionSheet />
     </div>
   );
 }

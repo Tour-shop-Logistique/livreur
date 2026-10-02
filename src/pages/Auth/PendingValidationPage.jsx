@@ -46,7 +46,7 @@ export default function PendingValidationPage() {
       subtitle="Votre compte sera activé dès que notre équipe aura validé vos documents. Cela prend généralement moins de 48 h."
     >
       <div className="mb-6 flex justify-center">
-        <span className="icon-tile h-16 w-16 rounded-3xl bg-warning-50 text-warning-600"><FileSearch size={30} aria-hidden="true" /></span>
+        <span className="icon-tile h-16 w-16 rounded-2xl bg-warning-50 text-warning-600"><FileSearch size={30} aria-hidden="true" /></span>
       </div>
 
       <ol className="card p-5">
@@ -61,7 +61,7 @@ export default function PendingValidationPage() {
               {i < TIMELINE.length - 1 && <span className={`w-0.5 flex-1 ${s.done ? 'bg-success-500' : 'bg-surface-200'}`} style={{ minHeight: 18 }} />}
             </div>
             <div className={`pt-1 ${i < TIMELINE.length - 1 ? 'pb-4' : ''}`}>
-              <p className={`text-sm ${s.done ? 'font-medium text-surface-800' : s.current ? 'font-semibold text-surface-900' : 'text-surface-400'}`}>{s.label}</p>
+              <p className={`text-sm ${s.done ? 'font-medium text-surface-800' : s.current ? 'font-semibold text-surface-900' : 'text-surface-500'}`}>{s.label}</p>
               {s.hint && <p className="mt-0.5 text-xs leading-relaxed text-surface-500">{s.hint}</p>}
             </div>
           </li>
@@ -70,7 +70,7 @@ export default function PendingValidationPage() {
 
       <div className="mt-6 space-y-3">
         {credentials ? (
-          <button type="button" className="btn-primary btn-lg w-full" onClick={checkStatus} disabled={loading}>
+          <button type="button" className="btn-primary btn-lg w-full" onClick={checkStatus} disabled={loading} aria-busy={loading}>
             <RefreshCw size={18} className={loading ? 'animate-spin' : ''} /> {loading ? 'Vérification…' : 'Vérifier mon statut'}
           </button>
         ) : (

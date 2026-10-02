@@ -19,7 +19,7 @@ export default function MarketplaceCard({ livraison }) {
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-surface-900">
               Livraison marketplace
-              <span className="font-normal text-surface-400"> · {livraison.mode === 'direct' ? 'Direct' : 'Réseau'}</span>
+              <span className="font-normal text-surface-500"> · {livraison.mode === 'direct' ? 'Direct' : 'Réseau'}</span>
             </p>
             <p className="truncate font-mono text-xs text-surface-500">Cde #{String(commande.id || livraison.commande_marketplace_id || '').slice(0, 8)}</p>
           </div>
@@ -29,13 +29,13 @@ export default function MarketplaceCard({ livraison }) {
 
       <div className="divider mt-4 flex items-center justify-between pt-3">
         <div>
-          <p className="tabular text-[15px] font-bold text-surface-900">{formatPrice(livraison.montant_final)}</p>
-          <p className="text-[11px] text-surface-400">
+          <p className="tabular text-lead font-bold text-surface-900">{formatPrice(livraison.montant_final)}</p>
+          <p className="text-caption text-surface-500">
             {commande.montant_articles != null ? `Articles : ${formatPrice(commande.montant_articles)}` : ''}
             {livraison.assignee_le ? ` · ${formatDateTime(livraison.assignee_le)}` : ''}
           </p>
         </div>
-        <span className="flex items-center gap-0.5 text-[13px] font-semibold text-primary-600">
+        <span className="flex items-center gap-0.5 text-label font-semibold text-primary-600">
           {closed ? 'Détails' : 'Continuer'} <ChevronRight size={16} aria-hidden="true" />
         </span>
       </div>

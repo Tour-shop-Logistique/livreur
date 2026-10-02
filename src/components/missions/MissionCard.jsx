@@ -28,7 +28,7 @@ export default function MissionCard({ mission }) {
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-surface-900">
               {MISSION_TYPE_LABEL[mission.type] || 'Mission'}
-              <span className="font-normal text-surface-400"> · {MISSION_MODE_LABEL[mission.mode] || mission.mode}</span>
+              <span className="font-normal text-surface-500"> · {MISSION_MODE_LABEL[mission.mode] || mission.mode}</span>
             </p>
             <p className="truncate font-mono text-xs text-surface-500">{reference || `#${String(mission.id).slice(0, 8)}`}</p>
           </div>
@@ -42,10 +42,10 @@ export default function MissionCard({ mission }) {
 
       <div className="divider mt-4 flex items-center justify-between pt-3">
         <div>
-          <p className="tabular text-[15px] font-bold text-surface-900">{formatPrice(mission.montant_final)}</p>
-          {mission.assignee_le && <p className="text-[11px] text-surface-400">Assignée {formatDateTime(mission.assignee_le).toLowerCase()}</p>}
+          <p className="tabular text-lead font-bold text-surface-900">{formatPrice(mission.montant_final)}</p>
+          {mission.assignee_le && <p className="text-caption text-surface-500">Assignée {formatDateTime(mission.assignee_le).toLowerCase()}</p>}
         </div>
-        <span className="flex items-center gap-0.5 text-[13px] font-semibold text-primary-600">
+        <span className="flex items-center gap-0.5 text-label font-semibold text-primary-600">
           {phase === 'done' || phase === 'cancelled' ? 'Détails' : 'Continuer'} <ChevronRight size={16} aria-hidden="true" />
         </span>
       </div>

@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
+import IconButton from './IconButton';
 
 export default function TopBar({ title, subtitle, back = false, right = null }) {
   const navigate = useNavigate();
@@ -15,17 +16,10 @@ export default function TopBar({ title, subtitle, back = false, right = null }) 
       <div className="page-container flex h-14 items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1">
           {back && (
-            <button
-              type="button"
-              onClick={goBack}
-              className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-surface-700 transition hover:bg-surface-100"
-              aria-label="Retour"
-            >
-              <ChevronLeft size={24} />
-            </button>
+            <IconButton icon={ChevronLeft} size={24} label="Retour" onClick={goBack} className="-ml-2.5 text-surface-700" />
           )}
           <div className="min-w-0">
-            <h1 className="truncate text-[17px] font-semibold text-surface-900">{title}</h1>
+            <h1 className="truncate text-title font-semibold text-surface-900">{title}</h1>
             {subtitle && <p className="truncate text-xs text-surface-500">{subtitle}</p>}
           </div>
         </div>

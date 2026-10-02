@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Info } from 'lucide-react';
 import BottomSheet from '../common/BottomSheet';
+import Callout from '../common/Callout';
 import { formatPrice } from '../../utils/format';
+import ButtonLabel from '../common/ButtonLabel';
 
 // Proposer / modifier / retirer une offre de prix. L'API est idempotente :
 // reproposer remplace le montant precedent (une seule offre active par mission).
@@ -46,14 +48,11 @@ export default function OfferSheet({ open, onClose, title, description, currentO
         </div>
 
         {note && (
-          <p className="flex gap-2 rounded-xl bg-surface-50 p-3 text-xs leading-relaxed text-surface-600">
-            <Info size={15} className="mt-0.5 shrink-0 text-primary-600" aria-hidden="true" />
-            {note}
-          </p>
+          <Callout tone="neutral" size="sm" icon={Info}>{note}</Callout>
         )}
 
-        <button type="submit" className="btn-accent btn-lg w-full" disabled={!valid || loading}>
-          {loading ? 'Envoi…' : currentOffer != null ? "Mettre à jour l'offre" : "Envoyer l'offre"}
+        <button type="submit" aria-busy={loading} className="btn-accent btn-lg w-full" disabled={!valid || loading}>
+          <ButtonLabel loading={loading} loadingLabel="Envoi…">{currentOffer != null ? "Mettre à jour l'offre" : "Envoyer l'offre"}</ButtonLabel>
         </button>
         {currentOffer != null && onWithdraw && (
           <button type="button" className="btn-danger w-full" onClick={onWithdraw} disabled={loading}>

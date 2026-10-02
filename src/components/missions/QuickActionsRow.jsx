@@ -18,7 +18,7 @@ export default function QuickActionsRow({ phone, mapsUrl }) {
           href={action.href}
           target={action.external ? '_blank' : undefined}
           rel={action.external ? 'noreferrer' : undefined}
-          className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-surface-200 bg-white text-[13px] font-semibold text-surface-700 transition hover:bg-surface-50 active:scale-[0.98]"
+          className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-surface-200 bg-white text-label font-semibold text-surface-700 transition hover:bg-surface-50 active:scale-[0.98]"
         >
           <action.icon size={17} className="text-primary-600" aria-hidden="true" />
           {action.label}

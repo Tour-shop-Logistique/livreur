@@ -1,15 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import pushService, { isPushSupported } from '../services/pushService';
 
-// Etat de l'abonnement WebPush de cet appareil.
+// Etat de l'abonnement WebPush de cet appareil. `ready` passe a true une fois
+// l'abonnement courant lu (evite d'afficher "desactive" pendant la lecture).
 export default function usePushSubscription() {
   const supported = isPushSupported();
   const [enabled, setEnabled] = useState(false);
+  const [ready, setReady] = useState(!supported);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!supported) return;
-    pushService.getCurrentSubscription().then((sub) => setEnabled(Boolean(sub))).catch(() => {});
+    pushService.getCurrentSubscription()
+      .then((sub) => setEnabled(Boolean(sub)))
+      .catch(() => {})
+      .finally(() => setReady(true));
   }, [supported]);
 
   const toggle = useCallback(async () => {
@@ -30,5 +35,5 @@ export default function usePushSubscription() {
     }
   }, [enabled]);
 
-  return { supported, enabled, loading, toggle };
+  return { supported, ready, enabled, loading, toggle };
 }

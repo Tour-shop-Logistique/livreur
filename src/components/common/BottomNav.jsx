@@ -29,12 +29,12 @@ function NavItem({ tab, badge }) {
           >
             <tab.icon size={21} strokeWidth={isActive ? 2.3 : 1.9} aria-hidden="true" />
             {badge > 0 && (
-              <span className="absolute right-2.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-white bg-accent-600 px-1 text-[10px] font-bold leading-none text-white">
+              <span className="absolute right-2.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-white bg-accent-600 px-1 text-micro font-bold leading-none text-white">
                 {badge > 9 ? '9+' : badge}
               </span>
             )}
           </span>
-          <span className={`text-[11px] leading-none ${isActive ? 'font-semibold text-primary-700' : 'font-medium text-surface-500'}`}>
+          <span className={`text-caption leading-none ${isActive ? 'font-semibold text-primary-700' : 'font-medium text-surface-500'}`}>
             {tab.label}
           </span>
         </>

@@ -2,17 +2,20 @@ import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useParams, Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { SearchX, CircleCheckBig, Ban, Package, Banknote, KeyRound } from 'lucide-react';
+import { SearchX, CircleCheckBig, Ban, Package, Banknote, KeyRound, Zap } from 'lucide-react';
 import TopBar from '../../components/common/TopBar';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
 import StickyActionBar from '../../components/common/StickyActionBar';
+import Callout from '../../components/common/Callout';
 import { ExpeditionStatusBadge } from '../../components/missions/StatusBadge';
 import MissionStepper from '../../components/missions/MissionStepper';
 import ContactCard from '../../components/missions/ContactCard';
 import MapRoutePreview from '../../components/missions/MapRoutePreview';
 import ProofCaptureModal from '../../components/missions/ProofCaptureModal';
 import ConfirmSheet from '../../components/missions/ConfirmSheet';
+import RouteLine from '../../components/missions/RouteLine';
+import MissionCompleteScreen from '../../components/missions/MissionCompleteScreen';
 import { expeditionRoute } from '../../components/missions/missionRoute';
 import {
   fetchActiveMissions, fetchMissionHistory, runMissionAction, selectMissionById,
@@ -22,11 +25,21 @@ import {
   expeditionPhase, expeditionAction, expeditionStepIndex, EXPEDITION_STEPS,
   MISSION_TYPE_LABEL, MISSION_MODE_LABEL,
 } from '../../utils/missionFlow';
-import { formatPrice, formatDateTime } from '../../utils/format';
+import { formatPrice, formatDateTime, formatDuration } from '../../utils/format';
 import { ROUTES } from '../../routes';
+import ButtonLabel from '../../components/common/ButtonLabel';
 
 // Actions qui passent par une capture de preuve (sinon simple confirmation).
 const PROOF_ACTIONS = ['confirmPickup', 'validateDelivery'];
+
+// Actions qui cloturent la mission : ecran de fin au lieu d'un simple toast.
+const CLOSING_ACTIONS = ['confirmAgencyDrop', 'validateDelivery'];
+
+// Arret vers lequel le livreur se rend, selon la phase (cf. missionRoute).
+const NEXT_STOP = {
+  enlevement: { start: 'from', pickup: 'from', deposit: 'to' },
+  livraison: { start: 'to', deliver: 'to' },
+};
 
 const CONFIRM_COPY = {
   startPickup: {
@@ -73,6 +86,7 @@ export default function MissionDetailPage() {
   const { active, history, pendingAction } = useSelector((state) => state.missions);
   const [sheet, setSheet] = useState(null); // action key en cours de confirmation
   const [actionError, setActionError] = useState(null);
+  const [completed, setCompleted] = useState(null); // { duree } apres cloture
 
   // Pas d'endpoint de detail : la mission est retrouvee dans les listes chargees.
   useEffect(() => {
@@ -120,6 +134,7 @@ export default function MissionDetailPage() {
 
   const mapOrigin = isPickup ? route.contact : route.agence;
   const mapDestination = isPickup ? route.agence : route.contact;
+  const nextStop = NEXT_STOP[mission.type]?.[phase] || null;
 
   const openAction = () => {
     setActionError(null);
@@ -130,8 +145,12 @@ export default function MissionDetailPage() {
     setActionError(null);
     const result = await dispatch(runMissionAction({ mission, actionKey: sheet, proof }));
     if (runMissionAction.fulfilled.match(result)) {
-      toast.success(SUCCESS_COPY[sheet]);
-      if (sheet === 'confirmAgencyDrop' || sheet === 'validateDelivery') dispatch(fetchBalance());
+      if (CLOSING_ACTIONS.includes(sheet)) {
+        dispatch(fetchBalance());
+        setCompleted({ duree: mission.assignee_le ? formatDuration(mission.assignee_le) : null });
+      } else {
+        toast.success(SUCCESS_COPY[sheet]);
+      }
       setSheet(null);
       dispatch(fetchActiveMissions());
     } else {
@@ -148,38 +167,46 @@ export default function MissionDetailPage() {
       />
 
       <div className="page-container flex-1 space-y-4 py-4">
-        {/* Resume */}
+        <MapRoutePreview origin={mapOrigin} destination={mapDestination} />
+
+        {/* Resume : etat, montant et trajet d'un coup d'oeil */}
         <div className="card p-4">
           <div className="flex items-center justify-between gap-3">
             <ExpeditionStatusBadge phase={phase} />
-            <p className="tabular text-xl font-bold text-surface-900">{formatPrice(mission.montant_final)}</p>
+            <p className="tabular font-heading text-xl font-bold text-surface-900">{formatPrice(mission.montant_final)}</p>
           </div>
-          <div className="divider mt-3 divide-y divide-surface-100">
+          <div className="mt-4">
+            <RouteLine from={route.from} to={route.to} active={nextStop} />
+          </div>
+          <div className="divider mt-4 divide-y divide-surface-100">
             <InfoRow icon={Banknote} label="Paiement" value={mission.statut_paiement === 'paye' ? 'Payé (espèces)' : 'Espèces à la clôture'} />
             {mission.assignee_le && <InfoRow icon={Package} label="Assignée" value={formatDateTime(mission.assignee_le)} />}
           </div>
         </div>
 
         {phase === 'done' && (
-          <div className="flex items-start gap-3 rounded-2xl border border-success-200 bg-success-50 p-4">
-            <CircleCheckBig size={22} className="mt-0.5 shrink-0 text-success-600" aria-hidden="true" />
-            <div>
-              <p className="font-semibold text-success-800">Mission terminée</p>
-              <p className="text-sm text-success-700">{formatPrice(mission.montant_final)} crédité sur votre solde livreur.</p>
-            </div>
-          </div>
+          <Callout tone="success" icon={CircleCheckBig} title="Mission terminée">
+            {formatPrice(mission.montant_final)} crédité sur votre solde livreur.
+          </Callout>
         )}
-        {phase === 'cancelled' && (
-          <div className="flex items-start gap-3 rounded-2xl border border-danger-200 bg-danger-50 p-4">
-            <Ban size={22} className="mt-0.5 shrink-0 text-danger-600" aria-hidden="true" />
-            <p className="text-sm font-medium text-danger-700">Cette mission a été annulée.</p>
-          </div>
-        )}
+        {phase === 'cancelled' && <Callout tone="danger" icon={Ban} title="Cette mission a été annulée." />}
         {phase === 'offer' && (
-          <div className="rounded-2xl border border-primary-200 bg-primary-50 p-4 text-sm text-primary-800">
-            Mission express ouverte aux offres. <Link to={`${ROUTES.MISSIONS}?onglet=disponibles`} className="font-semibold underline underline-offset-2">Proposer un tarif</Link>
-          </div>
+          <Callout to={`${ROUTES.MISSIONS}?onglet=disponibles`} tone="info" icon={Zap} title="Mission express ouverte aux offres">
+            Proposez votre tarif depuis l'onglet Express.
+          </Callout>
         )}
+
+        {mission.type === 'livraison' && phase === 'deliver' && (
+          <Callout tone="emphasis" icon={KeyRound}>
+            À la remise, demandez au destinataire son <strong className="text-white">code à 4 chiffres</strong>. Sans ce code, la livraison ne peut pas être clôturée.
+          </Callout>
+        )}
+
+        <section className="space-y-3">
+          <h2 className="section-title">{action ? 'Prochaine étape' : 'Contacts'}</h2>
+          <ContactCard role={primary.role} contact={primary.contact} isAgency={primary.isAgency} highlight={Boolean(action)} />
+          {secondary?.contact && <ContactCard role={secondary.role} contact={secondary.contact} isAgency={secondary.isAgency} />}
+        </section>
 
         {phase !== 'offer' && phase !== 'cancelled' && (
           <section className="card p-4">
@@ -187,20 +214,6 @@ export default function MissionDetailPage() {
             <MissionStepper steps={EXPEDITION_STEPS[mission.type] || EXPEDITION_STEPS.livraison} current={expeditionStepIndex(mission)} />
           </section>
         )}
-
-        {mission.type === 'livraison' && phase === 'deliver' && (
-          <div className="flex items-start gap-3 rounded-2xl bg-surface-900 p-4 text-white">
-            <KeyRound size={20} className="mt-0.5 shrink-0 text-accent-300" aria-hidden="true" />
-            <p className="text-sm leading-relaxed text-white/85">
-              À la remise, demandez au destinataire son <strong className="text-white">code à 4 chiffres</strong>. Sans ce code, la livraison ne peut pas être clôturée.
-            </p>
-          </div>
-        )}
-
-        <MapRoutePreview origin={mapOrigin} destination={mapDestination} />
-
-        <ContactCard role={primary.role} contact={primary.contact} isAgency={primary.isAgency} highlight={Boolean(action)} />
-        {secondary?.contact && <ContactCard role={secondary.role} contact={secondary.contact} isAgency={secondary.isAgency} />}
 
         {(colis.length > 0 || exp.pays_depart || exp.pays_destination) && (
           <section className="card p-4">
@@ -223,8 +236,8 @@ export default function MissionDetailPage() {
 
       {action && (
         <StickyActionBar hint={action.hint}>
-          <button type="button" className="btn-accent btn-lg w-full" onClick={openAction} disabled={busy}>
-            {busy ? 'Envoi…' : action.label}
+          <button type="button" aria-busy={busy} className="btn-accent btn-lg w-full" onClick={openAction} disabled={busy}>
+            <ButtonLabel loading={busy} loadingLabel="Envoi…">{action.label}</ButtonLabel>
           </button>
         </StickyActionBar>
       )}
@@ -263,6 +276,22 @@ export default function MissionDetailPage() {
         submitLabel="Valider la livraison"
         photoLabel="Photo de la remise"
       />
+
+      {completed && (
+        <MissionCompleteScreen
+          title={isPickup ? 'Mission terminée !' : 'Livraison terminée !'}
+          description={isPickup
+            ? "Le colis est déposé à l'agence. Votre solde a été crédité."
+            : 'Le colis est remis au destinataire. Votre solde a été crédité.'}
+          stats={[
+            { label: 'Gain crédité', value: formatPrice(mission.montant_final) },
+            ...(completed.duree ? [{ label: 'Durée', value: completed.duree }] : []),
+          ]}
+          primary={{ label: 'Voir mes gains', to: ROUTES.EARNINGS }}
+          secondary={{ label: "Retour à l'accueil", to: ROUTES.HOME }}
+          onClose={() => setCompleted(null)}
+        />
+      )}
     </div>
   );
 }

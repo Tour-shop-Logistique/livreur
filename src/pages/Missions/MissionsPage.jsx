@@ -6,23 +6,30 @@ import {
   RefreshCw, Route, Zap, ShoppingBag, History, WifiOff, Lock, ChevronRight,
 } from 'lucide-react';
 import TopBar from '../../components/common/TopBar';
+import IconButton from '../../components/common/IconButton';
 import SegmentedTabs from '../../components/common/SegmentedTabs';
 import FilterChips from '../../components/common/FilterChips';
 import SkeletonCard from '../../components/common/SkeletonCard';
 import RealtimeStatus from '../../components/common/RealtimeStatus';
 import EmptyState from '../../components/common/EmptyState';
+import Callout from '../../components/common/Callout';
 import MissionCard from '../../components/missions/MissionCard';
 import MarketplaceCard from '../../components/missions/MarketplaceCard';
 import OfferCard from '../../components/missions/OfferCard';
 import OfferSheet from '../../components/missions/OfferSheet';
+import { expressRoute } from '../../components/missions/missionRoute';
 import {
   fetchMissionHistory, proposeOffer, withdrawOffer,
 } from '../../store/slices/missionsSlice';
 import { proposeMarketplaceOffer, withdrawMarketplaceOffer } from '../../store/slices/marketplaceSlice';
 import { refreshMissions } from '../../hooks/useRealtime';
-import { contactOf, MISSION_TYPE_LABEL } from '../../utils/missionFlow';
+import { MISSION_TYPE_LABEL } from '../../utils/missionFlow';
+import {
+  missionCity, sameCity, cityOptions, loadPreferredCity, savePreferredCity,
+} from '../../utils/cityFilter';
 import { formatPrice } from '../../utils/format';
 import { ROUTES } from '../../routes';
+import ButtonLabel from '../../components/common/ButtonLabel';
 
 const HISTORY_FILTERS = [
   { key: '', label: 'Toutes' },
@@ -30,6 +37,12 @@ const HISTORY_FILTERS = [
   { key: 'terminee', label: 'Terminées' },
   { key: 'annulee', label: 'Annulées' },
 ];
+
+const expressOfferTarget = (m) => ({
+  kind: 'express',
+  id: m.id,
+  title: `${MISSION_TYPE_LABEL[m.type] || 'Mission'} ${m.expedition?.reference || ''}`.trim(),
+});
 
 function ErrorState({ message, onRetry }) {
   return (
@@ -68,11 +81,23 @@ export default function MissionsPage() {
   const abonnementBloque = useSelector((state) => state.abonnement.bloque);
 
   const [offerTarget, setOfferTarget] = useState(null); // { kind, id, title }
+  const [city, setCityState] = useState(loadPreferredCity); // '' = toutes les villes
+  const setCity = (ville) => { setCityState(ville); savePreferredCity(ville); };
   const [offerLoading, setOfferLoading] = useState(false);
 
   useEffect(() => {
     if (tab === 'historique' && !history.loaded) dispatch(fetchMissionHistory({ statut: '', page: 1 }));
   }, [dispatch, tab, history.loaded]);
+
+  // Arrivee depuis la feuille "Nouvelle mission" : ouvre directement l'offre.
+  const offreId = params.get('offre');
+  useEffect(() => {
+    if (!offreId) return;
+    const mission = available.items.find((m) => String(m.id) === offreId);
+    if (!mission && !available.loaded) return; // liste pas encore chargee
+    if (mission && disponible) setOfferTarget(expressOfferTarget(mission));
+    setParams({ onglet: 'disponibles' }, { replace: true });
+  }, [offreId, available.items, available.loaded, disponible, setParams]);
 
   const activeMarketplace = useMemo(
     () => marketplace.mine.items.filter((l) => l.statut === 'assignee' || l.statut === 'en_cours'),
@@ -82,6 +107,17 @@ export default function MissionsPage() {
     () => marketplace.mine.items.filter((l) => l.statut !== 'assignee' && l.statut !== 'en_cours'),
     [marketplace.mine.items]
   );
+
+  // Filtre par ville des missions express (cote app, en attendant B3 cote API).
+  const cities = useMemo(() => cityOptions(available.items, city), [available.items, city]);
+  const expressList = useMemo(
+    () => (city ? available.items.filter((m) => sameCity(missionCity(m), city)) : available.items),
+    [available.items, city]
+  );
+  const cityChips = [
+    { key: '', label: 'Toutes les villes', count: available.items.length },
+    ...cities.map((c) => ({ key: c.ville, label: c.ville, count: c.count })),
+  ];
 
   const activeCount = active.items.length + activeMarketplace.length;
   const tabs = [
@@ -132,16 +168,7 @@ export default function MissionsPage() {
     <div>
       <TopBar
         title="Missions"
-        right={(
-          <button
-            type="button"
-            onClick={refresh}
-            className="flex h-11 w-11 items-center justify-center rounded-full text-surface-600 hover:bg-surface-100"
-            aria-label="Actualiser"
-          >
-            <RefreshCw size={19} className={refreshing ? 'animate-spin' : ''} />
-          </button>
-        )}
+        right={<IconButton icon={RefreshCw} size={19} label="Actualiser" onClick={refresh} spinning={refreshing} />}
       />
 
       <div className="page-container space-y-4 pt-4">
@@ -179,37 +206,40 @@ export default function MissionsPage() {
               Missions sans livreur rattaché, ouvertes au réseau. Proposez votre prix : le client compare les offres et choisit.
             </p>
             {!disponible && (
-              <div className="flex items-start gap-2.5 rounded-xl border border-warning-200 bg-warning-50 p-3 text-xs text-warning-800">
-                <WifiOff size={16} className="mt-px shrink-0" aria-hidden="true" />
+              <Callout tone="warning" size="sm" icon={WifiOff}>
                 Vous êtes hors ligne : passez disponible pour pouvoir proposer une offre.
-              </div>
+              </Callout>
             )}
             {!available.loaded && available.status === 'loading' && <SkeletonCard />}
             {available.status === 'error' && available.items.length === 0 && <ErrorState message={available.error} onRetry={refresh} />}
+            {(cities.length > 1 || city) && (
+              <FilterChips options={cityChips} value={city} onChange={setCity} />
+            )}
             {available.loaded && available.status !== 'error' && available.items.length === 0 && (
               <EmptyState icon={Zap} title="Aucune mission express" description="Les nouvelles missions vous seront signalées en temps réel." />
             )}
-            {available.items.map((m) => {
-              const exp = m.expedition || {};
-              const expediteur = contactOf(exp, 'expediteur');
-              const destinataire = contactOf(exp, 'destinataire');
-              return (
-                <OfferCard
-                  key={m.id}
-                  kind="express"
-                  title={`${MISSION_TYPE_LABEL[m.type] || 'Mission'} express`}
-                  subtitle={exp.reference}
-                  route={{
-                    from: { label: 'Départ', title: expediteur.ville || exp.pays_depart || '—' },
-                    to: { label: 'Arrivée', title: destinataire.ville || exp.pays_destination || '—' },
-                  }}
-                  myOffer={offers[m.id]}
-                  disabled={!disponible}
-                  disabledReason="Passez disponible pour proposer une offre."
-                  onOffer={() => setOfferTarget({ kind: 'express', id: m.id, title: `${MISSION_TYPE_LABEL[m.type] || 'Mission'} ${exp.reference || ''}`.trim() })}
-                />
-              );
-            })}
+            {available.items.length > 0 && expressList.length === 0 && (
+              <EmptyState
+                compact
+                icon={Zap}
+                title={`Aucune mission à ${city}`}
+                description={`${available.items.length} mission${available.items.length > 1 ? 's' : ''} ouverte${available.items.length > 1 ? 's' : ''} dans d'autres villes.`}
+                action={<button type="button" className="btn-secondary btn-sm" onClick={() => setCity('')}>Voir toutes les villes</button>}
+              />
+            )}
+            {expressList.map((m) => (
+              <OfferCard
+                key={m.id}
+                kind="express"
+                title={`${MISSION_TYPE_LABEL[m.type] || 'Mission'} express`}
+                subtitle={m.expedition?.reference}
+                route={expressRoute(m)}
+                myOffer={offers[m.id]}
+                disabled={!disponible}
+                disabledReason="Passez disponible pour proposer une offre."
+                onOffer={() => setOfferTarget(expressOfferTarget(m))}
+              />
+            ))}
           </div>
         )}
 
@@ -275,11 +305,12 @@ export default function MissionsPage() {
             {history.page < history.lastPage && (
               <button
                 type="button"
+                aria-busy={history.status === 'loading'}
                 className="btn-secondary w-full"
                 disabled={history.status === 'loading'}
                 onClick={() => dispatch(fetchMissionHistory({ statut: history.statut, page: history.page + 1 }))}
               >
-                {history.status === 'loading' ? 'Chargement…' : 'Charger plus'}
+                <ButtonLabel loading={history.status === 'loading'} loadingLabel="Chargement…">Charger plus</ButtonLabel>
               </button>
             )}
           </div>

@@ -33,6 +33,7 @@ const initialState = {
   available: { items: [], status: 'idle', error: null, loaded: false },
   offers: loadOffers(),
   pendingAction: null, // id de la mission en cours d'action
+  incoming: null, // id d'une mission express tout juste publiee (feuille "Nouvelle mission")
 };
 
 const paginated = (data) => {
@@ -143,6 +144,12 @@ const missionsSlice = createSlice({
       delete state.offers[action.payload];
       saveOffers(state.offers);
     },
+    setIncoming(state, action) {
+      state.incoming = action.payload;
+    },
+    clearIncoming(state) {
+      state.incoming = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -219,7 +226,7 @@ const missionsSlice = createSlice({
   },
 });
 
-export const { removeAvailable, clearOffer } = missionsSlice.actions;
+export const { removeAvailable, clearOffer, setIncoming, clearIncoming } = missionsSlice.actions;
 
 export const selectMissionById = (state, id) => {
   const { active, history, available } = state.missions;

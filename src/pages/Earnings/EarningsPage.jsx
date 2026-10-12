@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'sonner';
 import {
-  ArrowDownLeft, ArrowUpRight, RefreshCw, Wallet, WifiOff, Info, Landmark,
+  ArrowDownLeft, ArrowUpRight, RefreshCw, Wallet, WifiOff, Info, Landmark, ShoppingBag,
 } from 'lucide-react';
 import TopBar from '../../components/common/TopBar';
 import IconButton from '../../components/common/IconButton';
@@ -13,11 +13,16 @@ import FormField from '../../components/common/FormField';
 import Callout from '../../components/common/Callout';
 import EarningsStats from '../../components/earnings/EarningsStats';
 import StatusBadge from '../../components/missions/StatusBadge';
-import { fetchBalance, fetchEarningsHistory, requestWithdrawal } from '../../store/slices/earningsSlice';
+import {
+  fetchBalance, fetchEarningsHistory, fetchMarketplaceSolde, requestWithdrawal,
+} from '../../store/slices/earningsSlice';
 import { formatPrice, formatDateTime } from '../../utils/format';
+import marketplaceService from '../../services/marketplaceService';
+import { apiErrorMessage } from '../../services/api';
 import ButtonLabel from '../../components/common/ButtonLabel';
 
-// Solde reel des missions d'expedition (PARCOURS_LIVREUR_API.md §4.6).
+// Solde reel des missions d'expedition (PARCOURS_LIVREUR_API.md §4.7), historique
+// pagine, + solde marketplace informatif (MARKETPLACE_ET_ABONNEMENT_API.md §7.9).
 const RETRAIT_STATUT = {
   en_attente: { label: 'En attente', tone: 'waiting' },
   traite: { label: 'Versé', tone: 'success' },
@@ -73,9 +78,63 @@ function WithdrawSheet({ open, onClose, solde, loading, onSubmit }) {
   );
 }
 
+// Compteur marketplace informatif + son detail (une ligne par livraison terminee,
+// GET /marketplace/livreur/solde/historique, §7.9), charge a la demande.
+function MarketplaceSoldeCard({ value }) {
+  const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState(null);
+  const [error, setError] = useState(null);
+
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    if (next && rows === null) {
+      setError(null);
+      marketplaceService.fetchSoldeHistory()
+        .then((data) => setRows(Array.isArray(data?.historique) ? data.historique : []))
+        .catch((err) => setError(apiErrorMessage(err, 'Détail indisponible.')));
+    }
+  };
+
+  return (
+    <section className="card p-4">
+      <div className="flex items-center gap-4">
+        <span className="icon-tile h-10 w-10 bg-success-50 text-success-700"><ShoppingBag size={19} aria-hidden="true" /></span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-surface-500">Compteur marketplace (indicatif)</p>
+          <p className="tabular text-lg font-bold text-surface-900">{formatPrice(value)}</p>
+          <p className="text-caption text-surface-500">Aucun argent détenu par TourShop : non retirable.</p>
+        </div>
+      </div>
+      <button type="button" className="mt-3 text-sm font-semibold text-primary-600" onClick={toggle} aria-expanded={open}>
+        {open ? 'Masquer le détail' : 'Voir le détail des courses'}
+      </button>
+      {open && (
+        <div className="mt-2">
+          {error && <p className="text-sm text-danger-600">{error}</p>}
+          {!error && rows === null && <p className="text-sm text-surface-500">Chargement…</p>}
+          {rows?.length === 0 && <p className="text-sm text-surface-500">Aucune course marketplace terminée.</p>}
+          {rows?.length > 0 && (
+            <ul className="divide-y divide-surface-100">
+              {rows.map((r, i) => (
+                <li key={r.livraison_id || i} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <span className="text-surface-600">{formatDateTime(r.date)}</span>
+                  <span className="tabular font-semibold text-surface-900">{formatPrice(r.montant)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function EarningsPage() {
   const dispatch = useDispatch();
-  const { balance, history, withdrawal } = useSelector((state) => state.earnings);
+  const {
+    balance, history, withdrawal, marketplace: marketplaceSolde,
+  } = useSelector((state) => state.earnings);
   const userSolde = useSelector((state) => state.auth.user?.solde_livreur);
   const marketplaceItems = useSelector((state) => state.marketplace.mine.items);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -85,10 +144,12 @@ export default function EarningsPage() {
   const load = () => {
     dispatch(fetchBalance());
     dispatch(fetchEarningsHistory());
+    dispatch(fetchMarketplaceSolde());
   };
 
   useEffect(() => {
     dispatch(fetchEarningsHistory());
+    dispatch(fetchMarketplaceSolde());
   }, [dispatch]);
 
   const { totalCredits, pendingWithdrawals } = useMemo(() => {
@@ -151,6 +212,8 @@ export default function EarningsPage() {
           Chaque mission d'expédition clôturée crédite automatiquement votre solde. Les courses marketplace sont réglées directement avec le vendeur et n'apparaissent pas ici.
         </p>
 
+        {marketplaceSolde.value != null && <MarketplaceSoldeCard value={marketplaceSolde.value} />}
+
         {history.loaded && history.status !== 'error' && (
           <EarningsStats historyItems={history.items} marketplaceItems={marketplaceItems} />
         )}
@@ -195,6 +258,17 @@ export default function EarningsPage() {
                 );
               })}
             </ul>
+          )}
+          {history.page < history.lastPage && (
+            <button
+              type="button"
+              className="btn-secondary mt-3 w-full"
+              aria-busy={history.status === 'loading'}
+              disabled={history.status === 'loading'}
+              onClick={() => dispatch(fetchEarningsHistory({ page: history.page + 1 }))}
+            >
+              <ButtonLabel loading={history.status === 'loading'} loadingLabel="Chargement…">Charger plus</ButtonLabel>
+            </button>
           )}
         </section>
       </div>

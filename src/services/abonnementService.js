@@ -24,10 +24,19 @@ const declarePayment = async (echeanceId, { methode, referenceTransaction, preuv
   return data;
 };
 
+// GET /abonnement/moyens-paiement -> comptes TourShop ou payer
+// ({ methode, libelle, numero_destinataire, instructions }), accessible meme
+// bloque. [] si le backoffice n'a encore rien configure.
+const fetchPaymentAccounts = async () => {
+  const { data } = await api.get('/abonnement/moyens-paiement');
+  return Array.isArray(data?.moyens) ? data.moyens : [];
+};
+
 const abonnementService = {
   fetchStatus,
   fetchHistory,
   declarePayment,
+  fetchPaymentAccounts,
 };
 
 export default abonnementService;

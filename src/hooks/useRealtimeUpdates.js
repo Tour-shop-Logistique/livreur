@@ -1,18 +1,20 @@
 import { useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import { useDispatch, useSelector, useStore } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useWebSocket } from './useWebSocket';
 import {
   getConnectionState, subscribeConnectionState, isRealtimeConfigured,
 } from '../services/echo';
 import {
-  fetchActiveMissions, fetchAvailableMissions, removeAvailable, clearOffer, setIncoming,
+  fetchActiveMissions, fetchAvailableMissions, fetchMissionProposals, removeAvailable, clearOffer, setIncoming,
 } from '../store/slices/missionsSlice';
 import {
   fetchMarketplaceAvailable, fetchMarketplaceMine, clearMarketplaceOffer,
+  upsertMarketplaceLivraison, removeMarketplaceLivraison,
 } from '../store/slices/marketplaceSlice';
 import { fetchAbonnementStatus } from '../store/slices/abonnementSlice';
-import { pushActivity } from '../store/slices/notificationsSlice';
+import { pushActivity, fetchServerNotifications } from '../store/slices/notificationsSlice';
 import { isActiveMarketplace } from '../utils/missionFlow';
 import { missionCity, sameCity, loadPreferredCity } from '../utils/cityFilter';
 import { ROUTES, missionDetailPath, marketplaceDetailPath } from '../routes';
@@ -20,17 +22,25 @@ import { ROUTES, missionDetailPath, marketplaceDetailPath } from '../routes';
 // Couche pratique au-dessus de useWebSocket (meme idee que client-app) :
 // branche l'ID du livreur connecte depuis Redux et expose des hooks prets a
 // l'emploi. Types d'evenements emis :
-//   mission.available | mission.assigned | mission.closed
-//   marketplace.available | marketplace.assigned | marketplace.closed
+//   mission.available | mission.proposed | mission.assigned | mission.closed
+//   marketplace.available | marketplace.proposed | marketplace.assigned
+//   marketplace.refused | marketplace.closed
 
 const EVENT_TYPES = {
   onMissionAvailable: { type: 'mission.available', group: 'missions' },
+  onMissionProposed: { type: 'mission.proposed', group: 'missions' },
   onMissionAssigned: { type: 'mission.assigned', group: 'missions' },
   onMissionClosed: { type: 'mission.closed', group: 'missions' },
   onMarketplaceAvailable: { type: 'marketplace.available', group: 'marketplace' },
+  onMarketplaceProposed: { type: 'marketplace.proposed', group: 'marketplace' },
   onMarketplaceAssigned: { type: 'marketplace.assigned', group: 'marketplace' },
+  onMarketplaceRefused: { type: 'marketplace.refused', group: 'marketplace' },
   onMarketplaceClosed: { type: 'marketplace.closed', group: 'marketplace' },
 };
+
+// Evenements doubles d'une notification push persistee : on recharge
+// l'historique serveur (GET /livreur/notifications) peu apres.
+const WITH_PUSH = new Set(['mission.available', 'mission.proposed', 'mission.assigned', 'mission.closed', 'marketplace.refused']);
 
 /**
  * Ecoute les evenements temps reel du livreur et appelle `onUpdate(data, meta, eventType)`.
@@ -82,6 +92,7 @@ export function useRealtimeMission(id, onUpdate, enabled = true) {
 export function useRealtimeWithNotifications(options = {}) {
   const dispatch = useDispatch();
   const store = useStore();
+  const navigate = useNavigate();
   const busy = useRef(new Set()); // anti-doublon si un evenement arrive deux fois
 
   const handle = useCallback((data, meta, eventType) => {
@@ -96,7 +107,63 @@ export function useRealtimeWithNotifications(options = {}) {
       }
     };
 
+    if (WITH_PUSH.has(eventType)) {
+      once('notifications.server', async () => {
+        await new Promise((r) => { setTimeout(r, 1500); });
+        dispatch(fetchServerNotifications());
+      });
+    }
+
     switch (eventType) {
+      // Mission groupage proposee par le backoffice : a accepter sous 15 min.
+      case 'mission.proposed':
+        dispatch(fetchMissionProposals());
+        dispatch(pushActivity({
+          kind: 'proposed',
+          titre: 'Nouvelle mission proposée',
+          message: 'Le backoffice vous propose une mission. Répondez sous 15 minutes.',
+          link: id ? missionDetailPath(id) : ROUTES.MISSIONS,
+          targetId: id,
+        }));
+        toast.info('Nouvelle mission proposée', {
+          description: 'Acceptez ou refusez sous 15 minutes.',
+          duration: 10000,
+          action: id ? { label: 'Voir', onClick: () => navigate(missionDetailPath(id)) } : undefined,
+        });
+        break;
+
+      // Affectation directe d'un vendeur : a accepter sous 15 min.
+      case 'marketplace.proposed':
+        data.forEach((l) => l?.id && dispatch(upsertMarketplaceLivraison({ ...l, statut: l.statut || 'proposee' })));
+        dispatch(fetchMarketplaceMine());
+        dispatch(pushActivity({
+          kind: 'proposed',
+          titre: 'Livraison marketplace proposée',
+          message: 'Un vendeur vous confie une livraison. Répondez sous 15 minutes.',
+          link: id ? marketplaceDetailPath(id) : `${ROUTES.MISSIONS}?onglet=encours`,
+          targetId: id,
+        }));
+        toast.info('Livraison marketplace proposée', {
+          description: 'Acceptez ou refusez sous 15 minutes.',
+          duration: 10000,
+          action: id ? { label: 'Voir', onClick: () => navigate(marketplaceDetailPath(id)) } : undefined,
+        });
+        break;
+
+      // Refus (accuse de reception) ou expiration automatique de la proposition.
+      case 'marketplace.refused':
+        if (id != null) dispatch(removeMarketplaceLivraison(id));
+        dispatch(fetchMarketplaceMine());
+        if (meta.action === 'expiree') {
+          dispatch(pushActivity({
+            kind: 'refused',
+            titre: 'Proposition marketplace expirée',
+            message: 'Sans réponse sous 15 minutes, la livraison a été rendue au vendeur.',
+            targetId: id,
+          }));
+        }
+        break;
+
       case 'mission.available': {
         dispatch(pushActivity({
           kind: 'available',
@@ -123,16 +190,23 @@ export function useRealtimeWithNotifications(options = {}) {
         break;
       }
 
-      case 'mission.assigned':
+      // Proposition groupage acceptee (par moi) ou offre express retenue.
+      case 'mission.assigned': {
+        const wasProposal = id != null && store.getState().missions.proposals.items.some((m) => String(m.id) === String(id));
         dispatch(fetchActiveMissions());
-        dispatch(pushActivity({
-          kind: 'assigned',
-          titre: 'Nouvelle mission assignée',
-          message: 'Le backoffice vous a attribué une mission.',
-          link: id ? missionDetailPath(id) : ROUTES.MISSIONS,
-        }));
-        toast.success('Nouvelle mission assignée');
+        dispatch(fetchMissionProposals());
+        if (!wasProposal) {
+          dispatch(pushActivity({
+            kind: 'assigned',
+            titre: 'Nouvelle mission assignée',
+            message: 'Une mission vous a été attribuée.',
+            link: id ? missionDetailPath(id) : ROUTES.MISSIONS,
+            targetId: id,
+          }));
+          toast.success('Nouvelle mission assignée');
+        }
         break;
+      }
 
       // Envoye a TOUS les offrants (gagnant + refuses) : on recharge ses missions
       // actives pour savoir si son offre a ete retenue.
@@ -172,20 +246,23 @@ export function useRealtimeWithNotifications(options = {}) {
           titre: 'Nouvelle livraison marketplace',
           message: 'Une vente attend un livreur sur le réseau.',
           link: `${ROUTES.MISSIONS}?onglet=marketplace`,
+          targetId: id,
         }));
         break;
 
+      // Emis apres MON acceptation d'une affectation directe : l'ecran de detail
+      // a deja confirme, on se contente de resynchroniser.
       case 'marketplace.assigned':
         dispatch(fetchMarketplaceMine());
-        // Une premiere assignation directe peut demarrer l'abonnement marketplace.
+        // Une premiere acceptation peut demarrer l'abonnement marketplace.
         dispatch(fetchAbonnementStatus());
         dispatch(pushActivity({
           kind: 'assigned',
           titre: 'Livraison marketplace assignée',
-          message: 'Un vendeur vous a confié une livraison.',
+          message: 'La livraison vous est confiée : récupérez l’article chez le vendeur.',
           link: id ? marketplaceDetailPath(id) : `${ROUTES.MISSIONS}?onglet=marketplace`,
+          targetId: id,
         }));
-        toast.success('Livraison marketplace assignée');
         break;
 
       case 'marketplace.closed':
@@ -217,7 +294,7 @@ export function useRealtimeWithNotifications(options = {}) {
       default:
         break;
     }
-  }, [dispatch, store]);
+  }, [dispatch, store, navigate]);
 
   useRealtimeUpdates(handle, options);
 }

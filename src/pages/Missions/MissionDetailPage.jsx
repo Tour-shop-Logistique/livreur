@@ -1,35 +1,41 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { SearchX, CircleCheckBig, Ban, Package, Banknote, KeyRound, Zap } from 'lucide-react';
+import {
+  SearchX, CircleCheckBig, Ban, Package, Banknote, KeyRound, Zap, MessageSquareText, CircleX,
+} from 'lucide-react';
 import TopBar from '../../components/common/TopBar';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
 import StickyActionBar from '../../components/common/StickyActionBar';
+import SlideToConfirm from '../../components/common/SlideToConfirm';
 import Callout from '../../components/common/Callout';
 import { ExpeditionStatusBadge } from '../../components/missions/StatusBadge';
-import MissionStepper from '../../components/missions/MissionStepper';
+import StepBar from '../../components/missions/StepBar';
 import ContactCard from '../../components/missions/ContactCard';
-import MapRoutePreview from '../../components/missions/MapRoutePreview';
+import MissionMap from '../../components/missions/MissionMap';
 import ProofCaptureModal from '../../components/missions/ProofCaptureModal';
-import ConfirmSheet from '../../components/missions/ConfirmSheet';
 import RouteLine from '../../components/missions/RouteLine';
 import MissionCompleteScreen from '../../components/missions/MissionCompleteScreen';
+import ProposalPanel from '../../components/missions/ProposalPanel';
+import MissionNotes from '../../components/missions/MissionNotes';
 import { expeditionRoute } from '../../components/missions/missionRoute';
 import {
-  fetchActiveMissions, fetchMissionHistory, runMissionAction, selectMissionById,
+  fetchActiveMissions, fetchMissionHistory, fetchMissionProposals, runMissionAction, selectMissionById,
+  acceptMissionProposal, refuseMissionProposal,
 } from '../../store/slices/missionsSlice';
 import { fetchBalance } from '../../store/slices/earningsSlice';
 import {
   expeditionPhase, expeditionAction, expeditionStepIndex, EXPEDITION_STEPS,
-  MISSION_TYPE_LABEL, MISSION_MODE_LABEL,
+  MISSION_TYPE_LABEL, MISSION_MODE_LABEL, missionInstructions,
 } from '../../utils/missionFlow';
 import { formatPrice, formatDateTime, formatDuration } from '../../utils/format';
+import { isValidPoint } from '../../services/routingService';
 import { ROUTES } from '../../routes';
-import ButtonLabel from '../../components/common/ButtonLabel';
 
-// Actions qui passent par une capture de preuve (sinon simple confirmation).
+// Actions qui passent par une capture de preuve ; les autres partent
+// directement apres le glissement (qui vaut confirmation).
 const PROOF_ACTIONS = ['confirmPickup', 'validateDelivery'];
 
 // Actions qui cloturent la mission : ecran de fin au lieu d'un simple toast.
@@ -41,21 +47,19 @@ const NEXT_STOP = {
   livraison: { start: 'to', deliver: 'to' },
 };
 
-const CONFIRM_COPY = {
+// Libelle du curseur et consequence affichee au-dessus, pour les actions sans preuve.
+const SLIDE_COPY = {
   startPickup: {
-    title: "Démarrer l'enlèvement ?",
-    description: "L'expéditeur et l'agence verront que vous êtes en route.",
-    confirmLabel: "Je pars chez l'expéditeur",
+    label: "Je pars chez l'expéditeur",
+    hint: "L'expéditeur et l'agence verront que vous êtes en route.",
   },
   startDelivery: {
-    title: 'Démarrer la livraison ?',
-    description: 'Le destinataire verra que le colis est en cours de livraison.',
-    confirmLabel: 'Je pars livrer',
+    label: 'Je pars livrer',
+    hint: 'Le destinataire verra que le colis est en cours de livraison.',
   },
   confirmAgencyDrop: {
-    title: "Confirmer le dépôt à l'agence ?",
-    description: "Le colis est remis à l'agence de départ. La mission sera clôturée et votre solde crédité.",
-    confirmLabel: 'Confirmer le dépôt',
+    label: 'Colis déposé à l’agence',
+    hint: 'La mission sera clôturée et votre solde crédité.',
   },
 };
 
@@ -82,21 +86,28 @@ function InfoRow({ icon, label, value }) {
 export default function MissionDetailPage() {
   const { id } = useParams();
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const mission = useSelector((state) => selectMissionById(state, id));
-  const { active, history, pendingAction } = useSelector((state) => state.missions);
+  const {
+    proposals, active, history, pendingAction,
+  } = useSelector((state) => state.missions);
+  const disponible = useSelector((state) => Boolean(state.auth.user?.disponible));
   const [sheet, setSheet] = useState(null); // action key en cours de confirmation
   const [actionError, setActionError] = useState(null);
+  const [proposalError, setProposalError] = useState(null);
   const [completed, setCompleted] = useState(null); // { duree } apres cloture
 
   // Pas d'endpoint de detail : la mission est retrouvee dans les listes chargees.
   useEffect(() => {
     if (mission) return;
+    if (!proposals.loaded) dispatch(fetchMissionProposals());
     if (!active.loaded) dispatch(fetchActiveMissions());
     if (!history.loaded) dispatch(fetchMissionHistory({ statut: '', page: 1 }));
-  }, [dispatch, mission, active.loaded, history.loaded]);
+  }, [dispatch, mission, proposals.loaded, active.loaded, history.loaded]);
 
   if (!mission) {
-    const loading = !active.loaded || !history.loaded || active.status === 'loading' || history.status === 'loading';
+    const loading = !active.loaded || !history.loaded || !proposals.loaded
+      || active.status === 'loading' || history.status === 'loading' || proposals.status === 'loading';
     return (
       <div className="flex flex-1 flex-col">
         <TopBar title="Mission" back />
@@ -106,7 +117,7 @@ export default function MissionDetailPage() {
               icon={SearchX}
               tone="error"
               title="Mission introuvable"
-              description="Cette mission n'existe plus ou ne vous est pas assignée."
+              description="Cette mission n'existe plus ou ne vous est pas assignée. Une proposition sans réponse expire au bout de 15 minutes."
               action={<Link to={ROUTES.MISSIONS} className="btn-secondary btn-sm">Retour aux missions</Link>}
             />
           </div>
@@ -122,6 +133,31 @@ export default function MissionDetailPage() {
   const isPickup = mission.type === 'enlevement';
   const busy = pendingAction === mission.id;
   const colis = Array.isArray(exp.colis) ? exp.colis : [];
+  const instructions = missionInstructions(mission);
+  const isProposal = phase === 'proposal';
+
+  const acceptProposal = async () => {
+    setProposalError(null);
+    const result = await dispatch(acceptMissionProposal(mission.id));
+    if (acceptMissionProposal.fulfilled.match(result)) {
+      toast.success('Mission acceptée. Elle est à vous !');
+      dispatch(fetchActiveMissions());
+    } else {
+      setProposalError(result.payload);
+    }
+  };
+
+  const refuseProposal = async (motif) => {
+    setProposalError(null);
+    const result = await dispatch(refuseMissionProposal({ missionId: mission.id, motif }));
+    if (refuseMissionProposal.fulfilled.match(result)) {
+      toast.message('Mission refusée', { description: 'Elle retourne au backoffice.' });
+      navigate(ROUTES.MISSIONS, { replace: true });
+      return true;
+    }
+    setProposalError(result.payload);
+    return false;
+  };
 
   // Contact prioritaire selon l'etape.
   const agencyContact = route.agence ? { ...route.agence, nom: route.agence.nom } : null;
@@ -130,32 +166,39 @@ export default function MissionDetailPage() {
     : { role: route.contact.role, contact: route.contact, isAgency: false };
   const secondary = isPickup && phase === 'deposit'
     ? { role: 'Expéditeur', contact: route.contact, isAgency: false }
-    : agencyContact ? { role: isPickup ? 'Agence de dépôt' : "Agence d'origine", contact: agencyContact, isAgency: true } : null;
+    : agencyContact ? { role: isPickup ? 'Agence de dépôt' : 'Agence de retrait', contact: agencyContact, isAgency: true } : null;
 
   const mapOrigin = isPickup ? route.contact : route.agence;
   const mapDestination = isPickup ? route.agence : route.contact;
   const nextStop = NEXT_STOP[mission.type]?.[phase] || null;
 
-  const openAction = () => {
-    setActionError(null);
-    setSheet(action.key);
-  };
+  const hasMap = [mapOrigin, mapDestination].some((p) => p && isValidPoint(p));
+  const slide = action ? SLIDE_COPY[action.key] : null;
+  const showDeliveryCode = mission.type === 'livraison' && ['start', 'deliver'].includes(phase);
+  const showInstructions = instructions && phase !== 'done' && phase !== 'cancelled';
 
-  const run = async (proof) => {
+  const run = async (actionKey, proof) => {
     setActionError(null);
-    const result = await dispatch(runMissionAction({ mission, actionKey: sheet, proof }));
+    const result = await dispatch(runMissionAction({ mission, actionKey, proof }));
     if (runMissionAction.fulfilled.match(result)) {
-      if (CLOSING_ACTIONS.includes(sheet)) {
+      if (CLOSING_ACTIONS.includes(actionKey)) {
         dispatch(fetchBalance());
         setCompleted({ duree: mission.assignee_le ? formatDuration(mission.assignee_le) : null });
       } else {
-        toast.success(SUCCESS_COPY[sheet]);
+        toast.success(SUCCESS_COPY[actionKey]);
       }
       setSheet(null);
       dispatch(fetchActiveMissions());
     } else {
       setActionError(result.payload);
     }
+  };
+
+  // Glissement valide : preuve a saisir, ou action envoyee directement.
+  const onSlide = () => {
+    setActionError(null);
+    if (PROOF_ACTIONS.includes(action.key)) setSheet(action.key);
+    else run(action.key);
   };
 
   return (
@@ -166,15 +209,30 @@ export default function MissionDetailPage() {
         back
       />
 
-      <div className="page-container flex-1 space-y-4 py-4">
-        <MapRoutePreview origin={mapOrigin} destination={mapDestination} />
+      {/* Carte bord a bord : le resume vient la chevaucher, facon feuille. */}
+      {hasMap && (
+        <MissionMap
+          variant="hero"
+          stops={[
+            mapOrigin && { key: 'from', kind: isPickup ? 'pickup' : 'agency', ...mapOrigin, title: route.from.title || 'Départ', detail: route.from.detail },
+            mapDestination && { key: 'to', kind: isPickup ? 'agency' : 'dropoff', ...mapDestination, title: route.to.title || 'Arrivée', detail: route.to.detail },
+          ]}
+          nextStop={nextStop}
+        />
+      )}
 
-        {/* Resume : etat, montant et trajet d'un coup d'oeil */}
-        <div className="card p-4">
+      <div className={`page-container relative z-10 flex-1 space-y-4 pb-4 ${hasMap ? '-mt-6' : 'pt-4'}`}>
+        {/* Resume : etat, montant, progression et trajet d'un coup d'oeil */}
+        <div className="card p-4 shadow-raised">
           <div className="flex items-center justify-between gap-3">
             <ExpeditionStatusBadge phase={phase} />
             <p className="tabular font-heading text-xl font-bold text-surface-900">{formatPrice(mission.montant_final)}</p>
           </div>
+          {!['offer', 'cancelled', 'proposal', 'refused'].includes(phase) && (
+            <div className="mt-4">
+              <StepBar steps={EXPEDITION_STEPS[mission.type] || EXPEDITION_STEPS.livraison} current={expeditionStepIndex(mission)} showLabels />
+            </div>
+          )}
           <div className="mt-4">
             <RouteLine from={route.from} to={route.to} active={nextStop} />
           </div>
@@ -190,15 +248,26 @@ export default function MissionDetailPage() {
           </Callout>
         )}
         {phase === 'cancelled' && <Callout tone="danger" icon={Ban} title="Cette mission a été annulée." />}
+        {phase === 'refused' && (
+          <Callout tone="neutral" icon={CircleX} title={mission.statut === 'expiree' ? 'Proposition expirée' : 'Mission refusée'}>
+            Elle a été rendue au backoffice pour être réattribuée.
+          </Callout>
+        )}
+        {isProposal && (
+          <ProposalPanel
+            title="Le backoffice vous propose cette mission"
+            expireLe={mission.expire_le}
+            loading={busy}
+            error={proposalError}
+            disabled={!disponible}
+            disabledReason="Passez disponible pour accepter une mission."
+            onAccept={acceptProposal}
+            onRefuse={refuseProposal}
+          />
+        )}
         {phase === 'offer' && (
           <Callout to={`${ROUTES.MISSIONS}?onglet=disponibles`} tone="info" icon={Zap} title="Mission express ouverte aux offres">
             Proposez votre tarif depuis l'onglet Express.
-          </Callout>
-        )}
-
-        {mission.type === 'livraison' && phase === 'deliver' && (
-          <Callout tone="emphasis" icon={KeyRound}>
-            À la remise, demandez au destinataire son <strong className="text-white">code à 4 chiffres</strong>. Sans ce code, la livraison ne peut pas être clôturée.
           </Callout>
         )}
 
@@ -208,11 +277,31 @@ export default function MissionDetailPage() {
           {secondary?.contact && <ContactCard role={secondary.role} contact={secondary.contact} isAgency={secondary.isAgency} />}
         </section>
 
-        {phase !== 'offer' && phase !== 'cancelled' && (
-          <section className="card p-4">
-            <h2 className="mb-4 text-sm font-semibold text-surface-900">Progression</h2>
-            <MissionStepper steps={EXPEDITION_STEPS[mission.type] || EXPEDITION_STEPS.livraison} current={expeditionStepIndex(mission)} />
+        {/* Consignes terrain regroupees : instructions du client et code de remise. */}
+        {(showInstructions || showDeliveryCode) && (
+          <section className="card divide-y divide-surface-100" aria-label="Consignes">
+            {showInstructions && (
+              <div className="flex items-start gap-3 p-4">
+                <MessageSquareText size={18} className="mt-0.5 shrink-0 text-warning-700" aria-hidden="true" />
+                <div className="min-w-0 text-sm">
+                  <p className="eyebrow">{isPickup ? "Instructions de l'expéditeur" : 'Instructions du destinataire'}</p>
+                  <p className="mt-0.5 leading-relaxed text-surface-800">{instructions}</p>
+                </div>
+              </div>
+            )}
+            {showDeliveryCode && (
+              <div className="flex items-start gap-3 p-4">
+                <KeyRound size={18} className="mt-0.5 shrink-0 text-primary-600" aria-hidden="true" />
+                <p className="text-sm leading-relaxed text-surface-700">
+                  À la remise, demandez au destinataire son <strong className="text-surface-900">code à 4 chiffres</strong>. Sans ce code, la livraison ne peut pas être clôturée.
+                </p>
+              </div>
+            )}
           </section>
+        )}
+
+        {['assignee', 'terminee'].includes(mission.statut) && (
+          <MissionNotes missionId={mission.id} editable={mission.statut === 'assignee'} />
         )}
 
         {(colis.length > 0 || exp.pays_depart || exp.pays_destination) && (
@@ -235,28 +324,18 @@ export default function MissionDetailPage() {
       </div>
 
       {action && (
-        <StickyActionBar hint={action.hint}>
-          <button type="button" aria-busy={busy} className="btn-accent btn-lg w-full" onClick={openAction} disabled={busy}>
-            <ButtonLabel loading={busy} loadingLabel="Envoi…">{action.label}</ButtonLabel>
-          </button>
+        <StickyActionBar hint={slide?.hint || action.hint}>
+          <div className="w-full space-y-2">
+            {actionError && !sheet && <p className="field-error mt-0 text-center" role="alert">{actionError}</p>}
+            <SlideToConfirm label={slide?.label || action.label} onConfirm={onSlide} loading={busy} />
+          </div>
         </StickyActionBar>
-      )}
-
-      {sheet && !PROOF_ACTIONS.includes(sheet) && (
-        <ConfirmSheet
-          open
-          onClose={() => setSheet(null)}
-          onConfirm={() => run()}
-          loading={busy}
-          error={actionError}
-          {...CONFIRM_COPY[sheet]}
-        />
       )}
 
       <ProofCaptureModal
         open={sheet === 'confirmPickup'}
         onClose={() => setSheet(null)}
-        onSubmit={run}
+        onSubmit={(proof) => run('confirmPickup', proof)}
         loading={busy}
         error={actionError}
         title="Confirmer la récupération"
@@ -266,7 +345,7 @@ export default function MissionDetailPage() {
       <ProofCaptureModal
         open={sheet === 'validateDelivery'}
         onClose={() => setSheet(null)}
-        onSubmit={run}
+        onSubmit={(proof) => run('validateDelivery', proof)}
         loading={busy}
         error={actionError}
         requireCode

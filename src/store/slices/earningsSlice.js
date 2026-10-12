@@ -1,14 +1,24 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import earningsService from '../../services/earningsService';
+import marketplaceService from '../../services/marketplaceService';
 import { apiErrorMessage } from '../../services/api';
 
-// Solde reel des missions d'expedition (PARCOURS_LIVREUR_API.md §4.6).
+// Solde reel des missions d'expedition (PARCOURS_LIVREUR_API.md §4.7).
 // Credits (+) a chaque mission cloturee, retraits (-) demandes au backoffice.
+// + solde marketplace INFORMATIF (MARKETPLACE_ET_ABONNEMENT_API.md §7.9).
 
 const initialState = {
   balance: { value: null, status: 'idle', error: null },
-  history: { items: [], status: 'idle', error: null, loaded: false },
+  history: { items: [], status: 'idle', error: null, loaded: false, page: 1, lastPage: 1 },
   withdrawal: { status: 'idle', error: null },
+  marketplace: { value: null, status: 'idle' },
+};
+
+// L'historique est pagine depuis §4.7 ; on tolere encore l'ancien tableau brut.
+const paginatedHistory = (data) => {
+  const h = data?.historique;
+  if (Array.isArray(h)) return { items: h, page: 1, lastPage: 1 };
+  return { items: h?.data ?? [], page: h?.current_page ?? 1, lastPage: h?.last_page ?? 1 };
 };
 
 export const fetchBalance = createAsyncThunk(
@@ -25,12 +35,23 @@ export const fetchBalance = createAsyncThunk(
 
 export const fetchEarningsHistory = createAsyncThunk(
   'earnings/fetchHistory',
-  async (_, { rejectWithValue }) => {
+  async ({ page = 1 } = {}, { rejectWithValue }) => {
     try {
-      const data = await earningsService.fetchHistory();
-      return data?.historique ?? [];
+      return paginatedHistory(await earningsService.fetchHistory(page));
     } catch (err) {
       return rejectWithValue(apiErrorMessage(err, "Impossible de charger l'historique."));
+    }
+  }
+);
+
+export const fetchMarketplaceSolde = createAsyncThunk(
+  'earnings/fetchMarketplaceSolde',
+  async (_, { rejectWithValue }) => {
+    try {
+      const data = await marketplaceService.fetchSolde();
+      return Number(data?.solde_marketplace ?? 0);
+    } catch (err) {
+      return rejectWithValue(apiErrorMessage(err, 'Solde marketplace indisponible.'));
     }
   }
 );
@@ -59,7 +80,11 @@ const earningsSlice = createSlice({
 
       .addCase(fetchEarningsHistory.pending, (state) => { state.history.status = 'loading'; state.history.error = null; })
       .addCase(fetchEarningsHistory.fulfilled, (state, action) => {
-        state.history = { items: action.payload, status: 'idle', error: null, loaded: true };
+        const { items, page, lastPage } = action.payload;
+        state.history = {
+          items: page > 1 ? [...state.history.items, ...items] : items,
+          status: 'idle', error: null, loaded: true, page, lastPage,
+        };
       })
       .addCase(fetchEarningsHistory.rejected, (state, action) => {
         state.history.status = 'error';
@@ -81,7 +106,11 @@ const earningsSlice = createSlice({
           }, ...state.history.items];
         }
       })
-      .addCase(requestWithdrawal.rejected, (state, action) => { state.withdrawal = { status: 'error', error: action.payload }; });
+      .addCase(requestWithdrawal.rejected, (state, action) => { state.withdrawal = { status: 'error', error: action.payload }; })
+
+      .addCase(fetchMarketplaceSolde.pending, (state) => { state.marketplace.status = 'loading'; })
+      .addCase(fetchMarketplaceSolde.fulfilled, (state, action) => { state.marketplace = { value: action.payload, status: 'idle' }; })
+      .addCase(fetchMarketplaceSolde.rejected, (state) => { state.marketplace.status = 'error'; });
   },
 });
 

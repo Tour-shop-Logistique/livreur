@@ -10,6 +10,8 @@ const TONES = {
 
 // Statut d'une mission d'expedition, affine par la phase du workflow.
 const EXPEDITION_PHASE = {
+  proposal: { label: 'À accepter', tone: 'active' },
+  refused: { label: 'Refusée', tone: 'neutral' },
   offer: { label: 'Ouverte aux offres', tone: 'info' },
   start: { label: 'À démarrer', tone: 'waiting' },
   pickup: { label: 'Enlèvement en cours', tone: 'active' },
@@ -20,6 +22,9 @@ const EXPEDITION_PHASE = {
 };
 
 const MARKETPLACE = {
+  proposee: { label: 'À accepter', tone: 'active' },
+  refusee: { label: 'Refusée', tone: 'neutral' },
+  expiree: { label: 'Expirée', tone: 'neutral' },
   en_attente: { label: 'Ouverte aux offres', tone: 'info' },
   assignee: { label: 'À démarrer', tone: 'waiting' },
   en_cours: { label: 'En cours', tone: 'active' },

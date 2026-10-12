@@ -32,8 +32,13 @@ export const mapsLink = (c) => {
   return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : null;
 };
 
-export const agencyOf = (expedition) => {
-  const a = expedition?.agence || expedition?.agence_depart;
+// Enlevement : agence de depart (`agence`). Livraison a domicile : le colis est
+// retire a l'agence d'arrivee (`agenceArrivee`, PARCOURS_LIVREUR_API.md §4.2),
+// repli sur l'agence de depart si elle n'est pas renseignee (Interville).
+export const agencyOf = (expedition, missionType = 'enlevement') => {
+  const arrivee = expedition?.agenceArrivee || expedition?.agence_arrivee;
+  const depart = expedition?.agence || expedition?.agence_depart;
+  const a = missionType === 'livraison' ? arrivee || depart : depart;
   if (!a) return null;
   return {
     nom: val(a.nom) ?? val(a.nom_agence) ?? 'Agence TourShop',
@@ -64,23 +69,26 @@ export const MISSION_MODE_LABEL = {
 
 export const EXPEDITION_STEPS = {
   enlevement: [
-    { key: 'assigned', label: 'Mission assignée' },
-    { key: 'start', label: "En route vers l'expéditeur" },
-    { key: 'pickup', label: 'Colis récupéré' },
-    { key: 'deposit', label: "Déposé à l'agence" },
+    { key: 'assigned', label: 'Mission assignée', short: 'Assignée' },
+    { key: 'start', label: "En route vers l'expéditeur", short: 'En route' },
+    { key: 'pickup', label: 'Colis récupéré', short: 'Récupéré' },
+    { key: 'deposit', label: "Déposé à l'agence", short: 'Déposé' },
   ],
   livraison: [
-    { key: 'assigned', label: 'Mission assignée' },
-    { key: 'start', label: 'En route vers le destinataire' },
-    { key: 'deliver', label: 'Remis au destinataire' },
+    { key: 'assigned', label: 'Mission assignée', short: 'Assignée' },
+    { key: 'start', label: 'En route vers le destinataire', short: 'En route' },
+    { key: 'deliver', label: 'Remis au destinataire', short: 'Remis' },
   ],
 };
 
-// Retourne la phase : 'offer' | 'start' | 'pickup' | 'deposit' | 'deliver' | 'done' | 'cancelled'
+// Retourne la phase : 'proposal' | 'offer' | 'start' | 'pickup' | 'deposit' | 'deliver'
+//                     | 'done' | 'cancelled' | 'refused'
 export const expeditionPhase = (mission) => {
   if (!mission) return null;
   if (mission.statut === 'terminee') return 'done';
   if (mission.statut === 'annulee') return 'cancelled';
+  if (mission.statut === 'refusee' || mission.statut === 'expiree') return 'refused';
+  if (mission.statut === 'proposee') return 'proposal';
   if (mission.statut === 'en_attente') return 'offer';
 
   const exp = mission.expedition || {};
@@ -131,6 +139,8 @@ export const expeditionPhaseLabel = (mission) => {
   const phase = expeditionPhase(mission);
   const pickup = mission?.type === 'enlevement';
   return {
+    proposal: 'À accepter',
+    refused: 'Refusée',
     offer: 'Offre en cours',
     start: pickup ? 'À enlever' : 'À livrer',
     pickup: 'Enlèvement en cours',
@@ -156,15 +166,35 @@ export const expeditionPatchAfter = (actionKey) => {
 
 export const isActiveExpedition = (m) => m?.statut === 'assignee';
 
+// Instructions saisies a la creation de l'expedition (lecture seule, §4.2),
+// a afficher avant l'etape correspondante.
+export const missionInstructions = (mission) => {
+  const exp = mission?.expedition || {};
+  return val(mission?.type === 'enlevement' ? exp.instructions_enlevement : exp.instructions_livraison);
+};
+
+// ---------------------------------------------------------------------------
+// Propositions a accepter (mission groupage §4.1bis, livraison directe §7.4)
+// ---------------------------------------------------------------------------
+
+// Secondes restantes avant `expire_le` (null si pas de delai connu).
+export const secondsLeft = (expireLe, now = Date.now()) => {
+  const t = Date.parse(expireLe ?? '');
+  return Number.isFinite(t) ? Math.max(0, Math.floor((t - now) / 1000)) : null;
+};
+
+export const isProposalExpired = (item) => secondsLeft(item?.expire_le) === 0;
+
 // ---------------------------------------------------------------------------
 // Livraisons Marketplace
 // ---------------------------------------------------------------------------
-// en_attente (offres) -> assignee -> demarrer (en_cours) -> valider(code) (terminee)
+// reseau : en_attente (offres) -> assignee -> demarrer (en_cours) -> valider(code) (terminee)
+// direct : proposee (15 min) -> accepter -> assignee -> ... | refuser/expiree
 
 export const MARKETPLACE_STEPS = [
-  { key: 'assigned', label: 'Livraison assignée' },
-  { key: 'started', label: 'Article récupéré chez le vendeur' },
-  { key: 'delivered', label: "Remis à l'acheteur" },
+  { key: 'assigned', label: 'Livraison assignée', short: 'Assignée' },
+  { key: 'started', label: 'Article récupéré chez le vendeur', short: 'Récupéré' },
+  { key: 'delivered', label: "Remis à l'acheteur", short: 'Remis' },
 ];
 
 export const marketplaceStepIndex = (livraison) => ({
@@ -185,3 +215,23 @@ export const marketplaceAction = (livraison) => {
 };
 
 export const isActiveMarketplace = (l) => l?.statut === 'assignee' || l?.statut === 'en_cours';
+
+export const isMarketplaceProposal = (l) => l?.statut === 'proposee' && !isProposalExpired(l);
+
+// Adresses de retrait (vendeur) et de livraison (acheteur). Completes sur une
+// livraison assignee, ville/quartier seulement tant qu'elle est disponible (§7.1/7.7).
+const placeOf = (p) => (p ? {
+  nom: val(p.nom),
+  telephone: val(p.telephone),
+  adresse: val(p.adresse),
+  quartier: val(p.quartier),
+  ville: val(p.ville),
+  lat: val(p.latitude),
+  lng: val(p.longitude),
+  instructions: val(p.instructions),
+} : null);
+
+export const marketplacePickup = (l) => placeOf(l?.retrait);
+export const marketplaceDropoff = (l) => placeOf(l?.livraison);
+
+export const placeLabel = (p) => [p?.quartier, p?.ville].filter(Boolean).join(', ') || '—';

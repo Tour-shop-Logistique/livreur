@@ -1,30 +1,46 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Zap, PackageCheck, CircleCheckBig, CircleX, CheckCheck, Trash2 } from 'lucide-react';
+import {
+  Bell, Zap, PackageCheck, CircleCheckBig, CircleX, CheckCheck, Trash2, Timer, BadgeCheck, UserX,
+  CalendarClock, Lock, Wallet, RefreshCw,
+} from 'lucide-react';
 import TopBar from '../../components/common/TopBar';
 import IconButton from '../../components/common/IconButton';
 import EmptyState from '../../components/common/EmptyState';
 import RealtimeStatus from '../../components/common/RealtimeStatus';
 import FilterChips from '../../components/common/FilterChips';
-import { markAllRead, markRead, clearActivity } from '../../store/slices/notificationsSlice';
+import ButtonLabel from '../../components/common/ButtonLabel';
+import {
+  markAllRead, markRead, clearActivity, fetchServerNotifications, markServerNotificationRead,
+  markAllServerNotificationsRead, selectActivityFeed,
+} from '../../store/slices/notificationsSlice';
 import { formatDateTime, formatRelativeShort } from '../../utils/format';
 import { isRealtimeConfigured } from '../../services/echo';
 
-// Fil d'activite local : l'API n'expose aucun historique de notifications
-// livreur (PARCOURS_LIVREUR_API.md §7.4). Alimente par le WebSocket.
+// Activite = historique persiste des notifications (GET /livreur/notifications,
+// partage entre appareils) + evenements temps reel recus app ouverte.
 const KIND = {
   available: { icon: Zap, className: 'bg-accent-50 text-accent-600' },
+  proposed: { icon: Timer, className: 'bg-accent-50 text-accent-600' },
   assigned: { icon: PackageCheck, className: 'bg-primary-50 text-primary-600' },
   accepted: { icon: CircleCheckBig, className: 'bg-success-50 text-success-600' },
   refused: { icon: CircleX, className: 'bg-surface-100 text-surface-500' },
+  account: { icon: BadgeCheck, className: 'bg-success-50 text-success-600' },
+  account_rejected: { icon: UserX, className: 'bg-danger-50 text-danger-600' },
+  subscription: { icon: CalendarClock, className: 'bg-warning-50 text-warning-700' },
+  subscription_ok: { icon: BadgeCheck, className: 'bg-success-50 text-success-600' },
+  subscription_rejected: { icon: CircleX, className: 'bg-danger-50 text-danger-600' },
+  subscription_blocked: { icon: Lock, className: 'bg-danger-50 text-danger-600' },
+  money: { icon: Wallet, className: 'bg-success-50 text-success-600' },
+  money_rejected: { icon: Wallet, className: 'bg-danger-50 text-danger-600' },
 };
 
-// Filtres : missions (nouvelles, assignees) / reponses a mes offres.
 const FILTERS = [
   { key: 'all', label: 'Toutes', kinds: null },
-  { key: 'missions', label: 'Missions', kinds: ['available', 'assigned'] },
+  { key: 'missions', label: 'Missions', kinds: ['available', 'proposed', 'assigned'] },
   { key: 'offers', label: 'Offres', kinds: ['accepted', 'refused'] },
+  { key: 'compte', label: 'Compte', kinds: ['account', 'account_rejected', 'subscription', 'subscription_ok', 'subscription_rejected', 'subscription_blocked', 'money', 'money_rejected'] },
 ];
 
 function ActivityItem({ item, onOpen }) {
@@ -58,9 +74,15 @@ function ActivityItem({ item, onOpen }) {
 export default function NotificationsPage() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const items = useSelector((state) => state.notifications.items);
+  const items = useSelector(selectActivityFeed);
+  const server = useSelector((state) => state.notifications.server);
+  const hasLocal = useSelector((state) => state.notifications.items.length > 0);
   const hasUnread = items.some((n) => !n.lue);
   const [filter, setFilter] = useState('all');
+
+  useEffect(() => {
+    dispatch(fetchServerNotifications());
+  }, [dispatch]);
 
   const { visible, options } = useMemo(() => {
     const match = (f, n) => !f.kinds || f.kinds.includes(n.kind);
@@ -72,22 +94,35 @@ export default function NotificationsPage() {
     };
   }, [items, filter]);
 
-  // Les elements consultes passent "lus" en quittant l'ecran.
+  // Les elements locaux consultes passent "lus" en quittant l'ecran.
   useEffect(() => () => { dispatch(markAllRead()); }, [dispatch]);
 
+  const readAll = () => {
+    dispatch(markAllRead());
+    if (server.items.some((n) => !n.lue)) dispatch(markAllServerNotificationsRead());
+  };
+
   const open = (n) => {
-    dispatch(markRead(n.id));
+    if (n.server) {
+      if (!n.lue) dispatch(markServerNotificationRead(n.serverId));
+    } else {
+      dispatch(markRead(n.id));
+    }
     if (n.link) navigate(n.link);
   };
+
+  const loadingFirst = !server.loaded && server.status === 'loading';
 
   return (
     <div>
       <TopBar
         title="Activité"
-        right={items.length > 0 && (
+        back
+        right={(
           <>
-            {hasUnread && <IconButton icon={CheckCheck} size={19} label="Tout marquer comme lu" onClick={() => dispatch(markAllRead())} />}
-            <IconButton icon={Trash2} size={18} label="Effacer l'activité" onClick={() => dispatch(clearActivity())} />
+            {hasUnread && <IconButton icon={CheckCheck} size={19} label="Tout marquer comme lu" onClick={readAll} />}
+            {hasLocal && <IconButton icon={Trash2} size={18} label="Effacer l'activité de cet appareil" onClick={() => dispatch(clearActivity())} />}
+            <IconButton icon={RefreshCw} size={18} label="Actualiser" onClick={() => dispatch(fetchServerNotifications())} spinning={server.status === 'loading'} />
           </>
         )}
       />
@@ -97,9 +132,9 @@ export default function NotificationsPage() {
         {items.length === 0 ? (
           <EmptyState
             icon={Bell}
-            title="Aucune activité"
+            title={loadingFirst ? 'Chargement…' : 'Aucune activité'}
             description={isRealtimeConfigured()
-              ? 'Nouvelles missions, assignations et réponses à vos offres apparaîtront ici en temps réel.'
+              ? 'Propositions de missions, assignations, réponses à vos offres, abonnement et retraits apparaîtront ici.'
               : 'Activez les notifications push dans votre profil pour être prévenu des nouvelles missions.'}
           />
         ) : (
@@ -111,6 +146,17 @@ export default function NotificationsPage() {
               <ul className="card divide-y divide-surface-100 overflow-hidden">
                 {visible.map((n) => <ActivityItem key={n.id} item={n} onOpen={open} />)}
               </ul>
+            )}
+            {server.page < server.lastPage && (
+              <button
+                type="button"
+                className="btn-secondary w-full"
+                aria-busy={server.status === 'loading'}
+                disabled={server.status === 'loading'}
+                onClick={() => dispatch(fetchServerNotifications({ page: server.page + 1 }))}
+              >
+                <ButtonLabel loading={server.status === 'loading'} loadingLabel="Chargement…">Notifications plus anciennes</ButtonLabel>
+              </button>
             )}
           </>
         )}

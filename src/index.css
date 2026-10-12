@@ -67,8 +67,9 @@
     @apply btn bg-primary-600 text-white hover:bg-primary-700;
   }
 
+  /* accent-700 : texte blanc a 5,2:1 (accent-600 plafonnait a ~3,6:1). */
   .btn-accent {
-    @apply btn bg-accent-600 text-white hover:bg-accent-700;
+    @apply btn bg-accent-700 text-white hover:bg-accent-800;
   }
 
   .btn-secondary {

@@ -1,8 +1,9 @@
 import { contactOf } from './missionFlow';
 
-// Filtre "missions de ma ville" (cahier des charges §5) applique cote app : l'API
-// renvoie toutes les missions express du reseau, sans filtre geographique
-// (demande backend B3). Le choix est memorise sur l'appareil.
+// Filtre "missions de ma ville" (cahier des charges §5). L'API filtre desormais
+// elle-meme sur la `ville` du profil (§4.5) ; la ville choisie ici est envoyee en
+// parametre `ville` pour la remplacer (cf. missionsSlice.geoFilter). Le choix est
+// memorise sur l'appareil.
 
 const STORAGE_KEY = 'livreur_ville_express';
 

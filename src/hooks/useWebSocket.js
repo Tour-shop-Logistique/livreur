@@ -10,9 +10,10 @@ import { getEcho, disconnectEcho } from '../services/echo';
 //     mais un seul channel.listen() reel est pose par canal, qui redispatche
 //     ensuite vers tous les callbacks inscrits.
 //
-// Evenements livreur (PARCOURS_LIVREUR_API.md §7.2) :
-//   Mission              nouvelle_disponible (reseau) | assignee | cloturee
-//   LivraisonMarketplace nouvelle_disponible (reseau) | assignee | cloturee
+// Evenements livreur (PARCOURS_LIVREUR_API.md §7.2, WEBSOCKETS.md) :
+//   Mission              nouvelle_disponible (reseau) | proposee | assignee | cloturee
+//   LivraisonMarketplace nouvelle_disponible (reseau) | proposee | assignee
+//                        | refusee | expiree | cloturee
 
 const channelListeners = new Map(); // channelName -> Set<callback>
 const channelRefs = new Map(); // channelName -> { echo, channel }
@@ -40,6 +41,7 @@ const normalize = (payload, channel) => {
       changes: payload?.changes || {},
       count: payload?.count ?? data.length,
       at: payload?.at,
+      action: payload?.action,
       channel,
     },
   };
@@ -48,12 +50,16 @@ const normalize = (payload, channel) => {
 const ROUTES = {
   Mission: {
     nouvelle_disponible: 'onMissionAvailable',
+    proposee: 'onMissionProposed',
     assignee: 'onMissionAssigned',
     cloturee: 'onMissionClosed',
   },
   LivraisonMarketplace: {
     nouvelle_disponible: 'onMarketplaceAvailable',
+    proposee: 'onMarketplaceProposed',
     assignee: 'onMarketplaceAssigned',
+    refusee: 'onMarketplaceRefused',
+    expiree: 'onMarketplaceRefused',
     cloturee: 'onMarketplaceClosed',
   },
 };
@@ -94,10 +100,13 @@ function unsubscribe(echo, channelName, callback) {
  * @param {string|null} userId - ID (uuid) du User livreur connecte.
  * @param {Object} handlers - (data[], meta) => void
  * @param {Function} handlers.onMissionAvailable     - Nouvelle mission express ouverte aux offres.
- * @param {Function} handlers.onMissionAssigned      - Mission assignee par le backoffice (groupage).
+ * @param {Function} handlers.onMissionProposed      - Mission groupage proposee, a accepter sous 15 min.
+ * @param {Function} handlers.onMissionAssigned      - Mission assignee (proposition acceptee / offre express retenue).
  * @param {Function} handlers.onMissionClosed        - Mission cloturee (offre acceptee, gagnant ou non).
  * @param {Function} handlers.onMarketplaceAvailable - Nouvelle livraison marketplace sur le reseau.
- * @param {Function} handlers.onMarketplaceAssigned  - Livraison marketplace assignee directement.
+ * @param {Function} handlers.onMarketplaceProposed  - Affectation directe d'un vendeur, a accepter sous 15 min.
+ * @param {Function} handlers.onMarketplaceAssigned  - Livraison marketplace assignee (apres acceptation).
+ * @param {Function} handlers.onMarketplaceRefused   - Affectation directe refusee ou expiree.
  * @param {Function} handlers.onMarketplaceClosed    - Livraison marketplace cloturee.
  * @param {Function} handlers.onAny                  - Tout evenement (model, action, data, meta).
  * @param {boolean} enabled - Active/desactive l'ecoute (defaut : true).

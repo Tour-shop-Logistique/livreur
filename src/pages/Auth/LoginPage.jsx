@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
-import { FlaskConical, Hourglass, MailWarning, AlertCircle } from 'lucide-react';
+import {
+  FlaskConical, Hourglass, MailWarning, AlertCircle, Lock,
+} from 'lucide-react';
 import AuthShell from '../../components/common/AuthShell';
 import FormField from '../../components/common/FormField';
 import Callout from '../../components/common/Callout';
@@ -13,6 +15,7 @@ import { loginLivreur, devBypassLogin, clearAuthError } from '../../store/slices
 import { ROUTES } from '../../routes';
 import { findCountry, DEFAULT_COUNTRY } from '../../utils/countries';
 import { nationalPhone } from '../../utils/phone';
+import { hasAbonnementHint, clearAbonnementHint } from '../../utils/abonnementHint';
 import ButtonLabel from '../../components/common/ButtonLabel';
 
 // Dernier pays choisi a la connexion (confort : pre-selection au prochain lancement).
@@ -46,6 +49,7 @@ export default function LoginPage() {
   const [country, setCountryState] = useState(loadCountry);
   const setCountry = (code) => { setCountryState(code); saveCountry(code); };
   const [form, setForm] = useState({ email: '', telephone: '', password: '' });
+  const [abonnementBloque] = useState(hasAbonnementHint);
   const loading = status === 'loading';
 
   const set = (name) => (value) => setForm((f) => ({ ...f, [name]: value }));
@@ -63,6 +67,11 @@ export default function LoginPage() {
     const result = await dispatch(loginLivreur(creds));
     if (loginLivreur.fulfilled.match(result)) {
       toast.success('Bienvenue !');
+      if (abonnementBloque) {
+        clearAbonnementHint();
+        navigate(ROUTES.ABONNEMENT, { replace: true });
+        return;
+      }
       navigate(location.state?.from?.pathname || ROUTES.HOME, { replace: true });
       return;
     }
@@ -100,6 +109,11 @@ export default function LoginPage() {
         </div>
       )}
     >
+      {abonnementBloque && !errorKind && (
+        <Callout tone="danger" icon={Lock} title="Abonnement marketplace en retard" className="mb-5">
+          Votre session a été fermée suite au blocage de votre accès marketplace. Reconnectez-vous pour régulariser : vos missions d'expédition restent accessibles.
+        </Callout>
+      )}
       {errorKind === 'inactive' && (
         <Callout
           tone="warning"

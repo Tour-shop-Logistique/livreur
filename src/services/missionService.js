@@ -12,9 +12,33 @@ const fetchMissions = async ({ statut, page = 1 } = {}) => {
   return data;
 };
 
-// GET /expedition/livreur/missions-disponibles — missions EXPRESS ouvertes au reseau.
-const fetchAvailableMissions = async () => {
-  const { data } = await api.get(`${BASE}/missions-disponibles`);
+// GET /expedition/livreur/missions-disponibles — missions EXPRESS ouvertes au reseau,
+// filtrees par defaut sur la `ville` du profil (§4.5). `ville` la remplace (livreur
+// en deplacement) ; `lat`/`lng` ajoutent `distance_km`, filtrent sur
+// `zone_de_livraison_km` et trient par distance.
+const fetchAvailableMissions = async ({ ville, lat, lng } = {}) => {
+  const params = {};
+  if (ville) params.ville = ville;
+  if (lat != null && lng != null) {
+    params.latitude = lat;
+    params.longitude = lng;
+  }
+  const { data } = await api.get(`${BASE}/missions-disponibles`, { params });
+  return data;
+};
+
+// --- Notes libres du livreur sur une mission assignee (§4.6) ---
+
+// GET /expedition/livreur/missions/{missionId}/notes
+const fetchNotes = async (missionId) => {
+  const { data } = await api.get(`${BASE}/missions/${missionId}/notes`);
+  return data;
+};
+
+// POST /expedition/livreur/missions/{missionId}/notes { contenu (max 1000), photo? }
+// 422 "Mission non modifiable." si la mission n'est plus `assignee`.
+const addNote = async (missionId, { contenu, photo }) => {
+  const { data } = await api.post(`${BASE}/missions/${missionId}/notes`, toFormData({ contenu, photo }), multipart);
   return data;
 };
 
@@ -27,6 +51,22 @@ const proposeOffer = async (missionId, montant) => {
 // DELETE /expedition/livreur/missions/{missionId}/offre
 const withdrawOffer = async (missionId) => {
   const { data } = await api.delete(`${BASE}/missions/${missionId}/offre`);
+  return data;
+};
+
+// --- Proposition groupage (§4.1bis) : `proposee` 15 min, accord explicite ---
+
+// POST /expedition/livreur/missions/{missionId}/accepter -> assignee.
+// 422 si expiree, livreur indisponible ou deja une mission en cours.
+const acceptProposal = async (missionId) => {
+  const { data } = await api.post(`${BASE}/missions/${missionId}/accepter`);
+  return data;
+};
+
+// POST /expedition/livreur/missions/{missionId}/refuser { motif? } — la mission
+// retourne dans la file du backoffice.
+const refuseProposal = async (missionId, motif) => {
+  const { data } = await api.post(`${BASE}/missions/${missionId}/refuser`, { motif: motif || undefined });
   return data;
 };
 
@@ -78,6 +118,10 @@ const missionService = {
   fetchAvailableMissions,
   proposeOffer,
   withdrawOffer,
+  acceptProposal,
+  refuseProposal,
+  fetchNotes,
+  addNote,
   startPickup,
   confirmPickup,
   confirmAgencyDrop,

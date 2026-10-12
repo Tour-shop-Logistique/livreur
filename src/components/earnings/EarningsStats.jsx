@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import SegmentedTabs from '../common/SegmentedTabs';
-import { STATS_PERIODS, computeStats } from '../../utils/stats';
+import earningsService from '../../services/earningsService';
+import { STATS_PERIODS, computeStats, fromServerStats } from '../../utils/stats';
 import { formatPrice } from '../../utils/format';
 
 const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
@@ -99,18 +100,34 @@ function DailyGainsChart({ days }) {
 }
 
 // Statistiques personnelles (cahier des charges §5) : missions cloturees, gains,
-// repartition par type, courses marketplace, gains quotidiens.
+// repartition par type, courses marketplace, offres, gains quotidiens.
+// Source : GET /livreur/statistiques (§4.8) ; calcul local en secours.
 export default function EarningsStats({ historyItems, marketplaceItems }) {
   const [period, setPeriod] = useState('7j');
-  const stats = useMemo(
+  const [server, setServer] = useState({}); // { [period]: stats | 'error' }
+
+  useEffect(() => {
+    if (server[period]) return undefined;
+    let cancelled = false;
+    earningsService.fetchStatistics(period)
+      .then((data) => !cancelled && setServer((s) => ({ ...s, [period]: fromServerStats(data) })))
+      .catch(() => !cancelled && setServer((s) => ({ ...s, [period]: 'error' })));
+    return () => { cancelled = true; };
+  }, [period, server]);
+
+  const local = useMemo(
     () => computeStats(historyItems, marketplaceItems, period),
     [historyItems, marketplaceItems, period]
   );
+  const remote = server[period];
+  const loading = remote === undefined;
+  const stats = remote && remote !== 'error' ? remote : local;
 
   const breakdown = [
     stats.byType.enlevement > 0 && plural(stats.byType.enlevement, 'enlèvement', 'enlèvements'),
     stats.byType.livraison > 0 && plural(stats.byType.livraison, 'livraison', 'livraisons'),
     stats.marketplace > 0 && plural(stats.marketplace, 'course marketplace', 'courses marketplace'),
+    stats.annulees > 0 && plural(stats.annulees, 'annulée', 'annulées'),
   ].filter(Boolean);
 
   return (
@@ -118,7 +135,7 @@ export default function EarningsStats({ historyItems, marketplaceItems }) {
       <h2 id="stats-title" className="section-title">Statistiques</h2>
       <SegmentedTabs tabs={STATS_PERIODS.map(({ key, label }) => ({ key, label }))} value={period} onChange={setPeriod} />
 
-      <div className="card mt-3 p-4">
+      <div className={`card mt-3 p-4 transition-opacity ${loading ? 'opacity-60' : ''}`} aria-busy={loading}>
         <p className="text-xs font-medium text-surface-500">Gains sur la période</p>
         <p className="mt-0.5 font-heading text-2xl font-bold text-surface-900">{formatPrice(stats.gains)}</p>
 
@@ -132,6 +149,20 @@ export default function EarningsStats({ historyItems, marketplaceItems }) {
             <dd className="text-lg font-semibold text-surface-900">{stats.missions ? formatPrice(stats.moyenne) : '—'}</dd>
           </div>
         </dl>
+
+        {stats.offres && stats.offres.proposees > 0 && (
+          <div className="mt-3 rounded-xl bg-surface-50 p-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-xs text-surface-500">Offres acceptées</span>
+              <span className="tabular text-sm font-semibold text-surface-900">
+                {stats.offres.acceptees}/{stats.offres.proposees} · {Math.round(stats.offres.taux * 100)} %
+              </span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-200" aria-hidden="true">
+              <div className="h-full rounded-full bg-success-500" style={{ width: `${Math.min(100, stats.offres.taux * 100)}%` }} />
+            </div>
+          </div>
+        )}
 
         {breakdown.length > 0 && <p className="mt-3 text-xs text-surface-500">{breakdown.join(' · ')}</p>}
 

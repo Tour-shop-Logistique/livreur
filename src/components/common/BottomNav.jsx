@@ -1,14 +1,13 @@
 import { NavLink } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { House, Route, Wallet, Bell, UserRound } from 'lucide-react';
+import { House, Route, Wallet, UserRound } from 'lucide-react';
 import { ROUTES } from '../../routes';
-import { selectUnreadCount } from '../../store/slices/notificationsSlice';
 
+// 4 onglets : l'Activite est accessible par la cloche de l'en-tete d'accueil.
 const TABS = [
   { to: ROUTES.HOME, icon: House, label: 'Accueil', end: true },
   { to: ROUTES.MISSIONS, icon: Route, label: 'Missions', badgeKey: 'missions' },
   { to: ROUTES.EARNINGS, icon: Wallet, label: 'Gains' },
-  { to: ROUTES.NOTIFICATIONS, icon: Bell, label: 'Activité', badgeKey: 'notifications' },
   { to: ROUTES.PROFILE, icon: UserRound, label: 'Profil' },
 ];
 
@@ -44,16 +43,15 @@ function NavItem({ tab, badge }) {
 }
 
 export default function BottomNav() {
-  const unread = useSelector(selectUnreadCount);
   const activeCount = useSelector((state) =>
     state.missions.active.items.length
     + state.marketplace.mine.items.filter((l) => l.statut === 'assignee' || l.statut === 'en_cours').length
   );
-  const badges = { notifications: unread, missions: activeCount };
+  const badges = { missions: activeCount };
 
   return (
     <nav className="safe-bottom fixed inset-x-0 bottom-0 z-30 bg-white shadow-nav" aria-label="Navigation principale">
-      <div className="mx-auto grid h-bottom-nav max-w-md grid-cols-5 px-1">
+      <div className="mx-auto grid h-bottom-nav max-w-md grid-cols-4 px-1">
         {TABS.map((tab) => (
           <NavItem key={tab.to} tab={tab} badge={tab.badgeKey ? badges[tab.badgeKey] : 0} />
         ))}

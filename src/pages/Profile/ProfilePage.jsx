@@ -68,6 +68,7 @@ function VehicleSheet({ open, onClose, livreur }) {
         numeroVehicule: livreur?.numero_vehicule || '',
         permisDeConduire: livreur?.permis_de_conduire || '',
         zoneDeLivraisonKm: livreur?.zone_de_livraison_km ?? '',
+        ville: livreur?.ville || '',
       });
     }
   }, [open, livreur]);
@@ -90,6 +91,9 @@ function VehicleSheet({ open, onClose, livreur }) {
   return (
     <BottomSheet open={open} onClose={onClose} title="Mon véhicule" description="Ces informations ne nécessitent pas de nouvelle vérification.">
       <form onSubmit={submit} className="space-y-4">
+        <FormField label="Ville d'exercice" htmlFor="v-ville" error={errors?.ville?.[0]} hint="Filtre les missions et livraisons qui vous sont proposées.">
+          <input id="v-ville" className="input-field" maxLength={100} placeholder="Ex. Abidjan" value={form.ville || ''} onChange={set('ville')} />
+        </FormField>
         <FormField label="Type de véhicule">
           <ChoiceGroup label="Type de véhicule" options={VEHICULES} value={form.typeVehicule} onChange={set('typeVehicule')} />
         </FormField>
@@ -285,7 +289,7 @@ export default function ProfilePage() {
             <Row
               icon={VehicleIcon}
               label="Mon véhicule"
-              value={livreur ? [livreur.type_vehicule === 'voiture' ? 'Voiture' : 'Moto', livreur.numero_vehicule, livreur.zone_de_livraison_km ? `${livreur.zone_de_livraison_km} km` : null].filter(Boolean).join(' · ') : 'Non renseigné'}
+              value={livreur ? [livreur.type_vehicule === 'voiture' ? 'Voiture' : 'Moto', livreur.numero_vehicule, livreur.ville, livreur.zone_de_livraison_km ? `${livreur.zone_de_livraison_km} km` : null].filter(Boolean).join(' · ') : 'Non renseigné'}
               onClick={() => setSheet('vehicle')}
             />
             <Row icon={ShieldCheck} label="Abonnement marketplace" value="Statut et échéances" to={ROUTES.ABONNEMENT} />

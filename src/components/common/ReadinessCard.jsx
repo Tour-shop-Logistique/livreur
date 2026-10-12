@@ -40,9 +40,22 @@ export default function ReadinessCard() {
 
   const kyc = KYC[livreur.statut_validation] || KYC.en_attente;
   const vehicleDone = Boolean(livreur.type_vehicule && livreur.numero_vehicule);
+  const cityDone = Boolean(livreur.ville);
 
   const items = [
     { key: 'kyc', done: kyc.done, label: 'Identité vérifiée', hint: kyc.hint, pendingIcon: kyc.icon, pendingTone: kyc.tone },
+    {
+      // Ville d'exercice : filtre geographique des missions disponibles (§4.5).
+      key: 'city',
+      done: cityDone,
+      label: "Ville d'exercice",
+      hint: cityDone ? livreur.ville : 'Recevez les courses de votre ville',
+      action: (
+        <Link to={`${ROUTES.PROFILE}?modifier=vehicule`} className="btn-secondary btn-sm shrink-0">
+          Compléter <ChevronRight size={14} aria-hidden="true" />
+        </Link>
+      ),
+    },
     {
       key: 'vehicle',
       done: vehicleDone,

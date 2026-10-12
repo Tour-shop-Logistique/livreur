@@ -43,7 +43,8 @@ const registerLivreur = async (form) => {
     type_vehicule: form.typeVehicule,
     numero_vehicule: form.numeroVehicule,
     permis_de_conduire: form.permisDeConduire,
-    zone_de_livraison_km: form.zoneDeLivraisonKm,
+    // Ville d'exercice (requise, communes du pays) : filtre les missions/livraisons disponibles.
+    ville: form.ville?.trim(),
   });
   const { data } = await api.post('/register-livreur', payload, multipart);
   return data;
@@ -112,8 +113,12 @@ const fetchLivreurProfile = async () => {
 };
 
 // PUT /livreur/vehicule — champs optionnels, ne touche pas au statut KYC.
-const updateVehicle = async ({ typeVehicule, numeroVehicule, permisDeConduire, zoneDeLivraisonKm }) => {
+// `ville` = ville d'exercice (filtrage geographique des missions disponibles).
+const updateVehicle = async ({
+  typeVehicule, numeroVehicule, permisDeConduire, zoneDeLivraisonKm, ville,
+}) => {
   const payload = {};
+  if (ville !== undefined && ville.trim() !== '') payload.ville = ville.trim();
   if (typeVehicule !== undefined) payload.type_vehicule = typeVehicule;
   if (numeroVehicule !== undefined) payload.numero_vehicule = numeroVehicule;
   if (permisDeConduire !== undefined) payload.permis_de_conduire = permisDeConduire;

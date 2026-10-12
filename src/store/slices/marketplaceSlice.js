@@ -1,10 +1,12 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import marketplaceService from '../../services/marketplaceService';
 import { apiErrorMessage } from '../../services/api';
+import { geoParams } from './missionsSlice';
 
 // Livraisons Marketplace (MARKETPLACE_ET_ABONNEMENT_API.md §7) :
 //  - available : livraisons reseau en attente d'offres
-//  - mine      : livraisons qui me sont assignees (tous statuts)
+//  - mine      : livraisons qui me sont proposees (affectation directe, 15 min)
+//                ou assignees (tous statuts), avec adresses/contacts complets
 //  - offers    : mes offres { [livraisonId]: montant }, gardees localement.
 // Un 403 ABONNEMENT_BLOQUE est remonte via `blocked` (cf. api.js + abonnementSlice).
 
@@ -25,6 +27,11 @@ const saveOffers = (offers) => {
   }
 };
 
+const isExpired = (expireLe) => {
+  const t = Date.parse(expireLe ?? '');
+  return Number.isFinite(t) && t <= Date.now();
+};
+
 const listState = () => ({ items: [], status: 'idle', error: null, blocked: false, loaded: false });
 
 const initialState = {
@@ -41,9 +48,10 @@ const failure = (err, fallback) => ({
 
 export const fetchMarketplaceAvailable = createAsyncThunk(
   'marketplace/fetchAvailable',
-  async (_, { rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
     try {
-      const data = await marketplaceService.fetchAvailable();
+      // Meme filtre geographique que les missions express (missionsSlice.geoFilter).
+      const data = await marketplaceService.fetchAvailable(geoParams(getState()));
       return data?.livraisons ?? [];
     } catch (err) {
       return rejectWithValue(failure(err, 'Impossible de charger les livraisons marketplace.'));
@@ -88,11 +96,51 @@ export const withdrawMarketplaceOffer = createAsyncThunk(
   }
 );
 
-export const startMarketplaceDelivery = createAsyncThunk(
-  'marketplace/start',
+// Detail d'une livraison qui m'est assignee (§7.8). 404 -> null (plus a moi).
+export const fetchMarketplaceDetail = createAsyncThunk(
+  'marketplace/fetchDetail',
   async (id, { rejectWithValue }) => {
     try {
-      const data = await marketplaceService.start(id);
+      const data = await marketplaceService.fetchOne(id);
+      return { id, livraison: data?.livraison ?? null };
+    } catch (err) {
+      if (err.response?.status === 404) return { id, livraison: null };
+      return rejectWithValue(failure(err, 'Impossible de charger cette livraison.'));
+    }
+  }
+);
+
+// Affectation directe par le vendeur : accepter (§7.4).
+export const acceptMarketplaceProposal = createAsyncThunk(
+  'marketplace/accept',
+  async (id, { rejectWithValue }) => {
+    try {
+      const data = await marketplaceService.accept(id);
+      return { id, livraison: data?.livraison };
+    } catch (err) {
+      return rejectWithValue(apiErrorMessage(err, "Impossible d'accepter cette livraison."));
+    }
+  }
+);
+
+export const refuseMarketplaceProposal = createAsyncThunk(
+  'marketplace/refuse',
+  async ({ id, motif }, { rejectWithValue }) => {
+    try {
+      await marketplaceService.refuse(id, motif);
+      return id;
+    } catch (err) {
+      return rejectWithValue(apiErrorMessage(err, 'Impossible de refuser cette livraison.'));
+    }
+  }
+);
+
+// Demarrage avec preuve de retrait optionnelle (photo, signature, position).
+export const startMarketplaceDelivery = createAsyncThunk(
+  'marketplace/start',
+  async ({ id, proof }, { rejectWithValue }) => {
+    try {
+      const data = await marketplaceService.start(id, proof);
       return { id, livraison: data?.livraison };
     } catch (err) {
       return rejectWithValue(apiErrorMessage(err, 'Cette livraison ne peut pas être démarrée.'));
@@ -100,11 +148,12 @@ export const startMarketplaceDelivery = createAsyncThunk(
   }
 );
 
+// Validation par code + preuve de remise optionnelle.
 export const validateMarketplaceDelivery = createAsyncThunk(
   'marketplace/validate',
-  async ({ id, code, photo }, { rejectWithValue }) => {
+  async ({ id, code, photo, signature, lat, lng }, { rejectWithValue }) => {
     try {
-      const data = await marketplaceService.validate(id, { code, photo });
+      const data = await marketplaceService.validate(id, { code, photo, signature, lat, lng });
       return { id, message: data?.message };
     } catch (err) {
       return rejectWithValue(apiErrorMessage(err, 'Code de validation incorrect.'));
@@ -113,7 +162,18 @@ export const validateMarketplaceDelivery = createAsyncThunk(
 );
 
 const patchMine = (state, id, patch) => {
-  state.mine.items = state.mine.items.map((l) => (l.id === id ? { ...l, ...patch } : l));
+  state.mine.items = state.mine.items.map((l) => (String(l.id) === String(id) ? { ...l, ...patch } : l));
+};
+
+const upsertMine = (state, livraison) => {
+  if (!livraison?.id) return;
+  const exists = state.mine.items.some((l) => String(l.id) === String(livraison.id));
+  if (exists) patchMine(state, livraison.id, livraison);
+  else state.mine.items = [livraison, ...state.mine.items];
+};
+
+const removeMine = (state, id) => {
+  state.mine.items = state.mine.items.filter((l) => String(l.id) !== String(id));
 };
 
 const marketplaceSlice = createSlice({
@@ -123,6 +183,14 @@ const marketplaceSlice = createSlice({
     clearMarketplaceOffer(state, action) {
       delete state.offers[action.payload];
       saveOffers(state.offers);
+    },
+    // Livraison recue en temps reel (ex. `proposee`) avant le rechargement de la liste.
+    upsertMarketplaceLivraison(state, action) {
+      upsertMine(state, action.payload);
+    },
+    // Proposition refusee / expiree : elle ne m'appartient plus.
+    removeMarketplaceLivraison(state, action) {
+      removeMine(state, action.payload);
     },
   },
   extraReducers: (builder) => {
@@ -146,7 +214,13 @@ const marketplaceSlice = createSlice({
 
       .addCase(fetchMarketplaceMine.pending, pending('mine'))
       .addCase(fetchMarketplaceMine.fulfilled, (state, action) => {
-        state.mine = { items: action.payload, status: 'idle', error: null, blocked: false, loaded: true };
+        // Une proposition recue par WebSocket peut ne pas figurer dans
+        // `mes-livraisons` : on la garde tant qu'elle n'a pas expire.
+        const ids = new Set(action.payload.map((l) => String(l.id)));
+        const pendingProposals = state.mine.items.filter((l) => (
+          l.statut === 'proposee' && !ids.has(String(l.id)) && !isExpired(l.expire_le)
+        ));
+        state.mine = { items: [...pendingProposals, ...action.payload], status: 'idle', error: null, blocked: false, loaded: true };
       })
       .addCase(fetchMarketplaceMine.rejected, rejected('mine'))
 
@@ -159,7 +233,31 @@ const marketplaceSlice = createSlice({
         saveOffers(state.offers);
       })
 
-      .addCase(startMarketplaceDelivery.pending, (state, action) => { state.pendingAction = action.meta.arg; })
+      .addCase(fetchMarketplaceDetail.fulfilled, (state, action) => {
+        const { id, livraison } = action.payload;
+        if (livraison) upsertMine(state, livraison);
+        else {
+          // 404 : plus assignee a moi (sauf proposition en attente, non exposee par ce detail).
+          const current = state.mine.items.find((l) => String(l.id) === String(id));
+          if (current && current.statut !== 'proposee') removeMine(state, id);
+        }
+      })
+
+      .addCase(acceptMarketplaceProposal.pending, (state, action) => { state.pendingAction = action.meta.arg; })
+      .addCase(acceptMarketplaceProposal.rejected, (state) => { state.pendingAction = null; })
+      .addCase(acceptMarketplaceProposal.fulfilled, (state, action) => {
+        state.pendingAction = null;
+        patchMine(state, action.payload.id, { ...(action.payload.livraison || {}), statut: 'assignee' });
+      })
+
+      .addCase(refuseMarketplaceProposal.pending, (state, action) => { state.pendingAction = action.meta.arg.id; })
+      .addCase(refuseMarketplaceProposal.rejected, (state) => { state.pendingAction = null; })
+      .addCase(refuseMarketplaceProposal.fulfilled, (state, action) => {
+        state.pendingAction = null;
+        removeMine(state, action.payload);
+      })
+
+      .addCase(startMarketplaceDelivery.pending, (state, action) => { state.pendingAction = action.meta.arg.id; })
       .addCase(startMarketplaceDelivery.rejected, (state) => { state.pendingAction = null; })
       .addCase(startMarketplaceDelivery.fulfilled, (state, action) => {
         state.pendingAction = null;
@@ -175,7 +273,7 @@ const marketplaceSlice = createSlice({
   },
 });
 
-export const { clearMarketplaceOffer } = marketplaceSlice.actions;
+export const { clearMarketplaceOffer, upsertMarketplaceLivraison, removeMarketplaceLivraison } = marketplaceSlice.actions;
 
 export const selectMarketplaceById = (state, id) => {
   const { available, mine } = state.marketplace;

@@ -14,12 +14,12 @@ export function expressRoute(mission) {
 
 // Points de depart / d'arrivee d'une mission d'expedition selon son type :
 //  - enlevement : expediteur -> agence de depart
-//  - livraison  : agence -> destinataire
+//  - livraison  : agence d'arrivee -> destinataire
 export function expeditionRoute(mission) {
   const exp = mission?.expedition || {};
   const expediteur = contactOf(exp, 'expediteur');
   const destinataire = contactOf(exp, 'destinataire');
-  const agence = agencyOf(exp);
+  const agence = agencyOf(exp, mission?.type);
 
   const agencePoint = {
     label: 'Agence',

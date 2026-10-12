@@ -10,9 +10,10 @@ const fetchBalance = async () => {
   return data;
 };
 
-// GET /livreur/solde/historique -> credits (+) et retraits (-) tries par date desc.
-const fetchHistory = async () => {
-  const { data } = await api.get('/livreur/solde/historique');
+// GET /livreur/solde/historique?page= -> credits (+) et retraits (-) tries par
+// date desc, desormais pagine (20/page, §4.7).
+const fetchHistory = async (page = 1) => {
+  const { data } = await api.get('/livreur/solde/historique', { params: { page } });
   return data;
 };
 
@@ -22,9 +23,17 @@ const requestWithdrawal = async ({ montant, notes }) => {
   return data;
 };
 
+// GET /livreur/statistiques?periode=7j|30j|tout (§4.8) — missions, marketplace,
+// offres (taux d'acceptation), gains et serie `par_jour` (absente pour `tout`).
+const fetchStatistics = async (periode = '30j') => {
+  const { data } = await api.get('/livreur/statistiques', { params: { periode } });
+  return data;
+};
+
 const earningsService = {
   fetchBalance,
   fetchHistory,
+  fetchStatistics,
   requestWithdrawal,
 };
 

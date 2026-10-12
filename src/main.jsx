@@ -6,12 +6,27 @@ import { Toaster } from 'sonner';
 import { store } from './store';
 import { sessionExpired } from './store/slices/authSlice';
 import { markBlocked } from './store/slices/abonnementSlice';
+import { setAbonnementHint, isEcheanceOverdue, isBlockedPush } from './utils/abonnementHint';
 import App from './App.jsx';
 import './index.css';
 
 // L'intercepteur API emet ces evenements (cf. services/api.js).
-window.addEventListener('auth:unauthorized', () => store.dispatch(sessionExpired()));
+window.addEventListener('auth:unauthorized', () => {
+  // Tokens revoques au blocage d'abonnement : expliquer la deconnexion.
+  if (store.getState().auth.isAuthenticated && isEcheanceOverdue(store.getState().abonnement)) setAbonnementHint();
+  store.dispatch(sessionExpired());
+});
 window.addEventListener('abonnement:bloque', () => store.dispatch(markBlocked()));
+
+// Push "abonnement bloque" recu app ouverte (relaye par public/push-sw.js).
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data?.type === 'push' && isBlockedPush(event.data.payload)) {
+      setAbonnementHint();
+      store.dispatch(markBlocked());
+    }
+  });
+}
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

@@ -10,7 +10,8 @@ import useGeolocation from '../../hooks/useGeolocation';
 // Capture de preuve commune aux etapes du workflow :
 //  - enlevement/confirm : photo + signature + geo, tous facultatifs mais recommandes
 //  - livraison/validate : code a 4 chiffres OBLIGATOIRE + preuve facultative
-//  - marketplace/valider: code OBLIGATOIRE + photo facultative (pas de signature/geo)
+//  - marketplace/demarrer : preuve de retrait facultative (photo, signature, geo)
+//  - marketplace/valider  : code OBLIGATOIRE + preuve de remise facultative
 export default function ProofCaptureModal({
   open, onClose, onSubmit, loading, error,
   title, description, submitLabel = 'Valider',

@@ -1,7 +1,9 @@
-import { startOfDay, subDays, format } from 'date-fns';
+import { startOfDay, subDays, format, parseISO } from 'date-fns';
 
-// Statistiques personnelles (cahier des charges §5), calculees cote app a partir
-// des donnees deja exposees par l'API :
+// Statistiques personnelles (cahier des charges §5). Source principale :
+// GET /livreur/statistiques (PARCOURS_LIVREUR_API.md §4.8), convertie par
+// `fromServerStats`. En secours (route indisponible), calcul cote app a partir
+// des donnees deja chargees :
 //  - GET /livreur/solde/historique : un credit par mission d'expedition cloturee
 //    (PARCOURS_LIVREUR_API.md §4.6), avec la mission en `detail.mission` ;
 //  - livraisons marketplace du livreur (statut terminee/livree) : aucune somme
@@ -15,6 +17,30 @@ export const STATS_PERIODS = [
 
 const dayKey = (d) => format(d, 'yyyy-MM-dd');
 const isDone = (l) => l?.statut === 'terminee' || l?.statut === 'livree';
+
+// Reponse de /livreur/statistiques -> meme forme que computeStats (+ offres, annulees).
+export function fromServerStats(data) {
+  const missions = data?.missions || {};
+  const gains = data?.gains || {};
+  const offres = data?.offres || null;
+  const days = Array.isArray(data?.par_jour)
+    ? data.par_jour.map((d) => ({ date: parseISO(d.date), gains: Number(d.gains) || 0, missions: Number(d.missions) || 0 }))
+    : null;
+  return {
+    missions: Number(missions.terminees) || 0,
+    gains: Number(gains.total) || 0,
+    moyenne: Math.round(Number(gains.moyenne_par_mission) || 0),
+    byType: { enlevement: Number(missions.enlevements) || 0, livraison: Number(missions.livraisons) || 0 },
+    annulees: Number(missions.annulees) || 0,
+    marketplace: Number(data?.marketplace?.terminees) || 0,
+    offres: offres && {
+      proposees: Number(offres.proposees) || 0,
+      acceptees: Number(offres.acceptees) || 0,
+      taux: Number(offres.taux_acceptation) || 0,
+    },
+    days,
+  };
+}
 
 export function computeStats(historyItems, marketplaceItems, periodKey, now = new Date()) {
   const period = STATS_PERIODS.find((p) => p.key === periodKey) || STATS_PERIODS[0];

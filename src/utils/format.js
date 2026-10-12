@@ -60,6 +60,11 @@ export const formatDuration = (from, to = new Date()) => {
   return hours % 24 ? `${days} j ${hours % 24} h` : `${days} j`;
 };
 
+// `distance_km` renvoye par les listes "disponibles" filtrees par position.
+export const formatDistance = (km) => (
+  km == null || Number.isNaN(Number(km)) ? null : `À ${Number(km).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} km`
+);
+
 export const fullName = (user) =>
   [user?.prenoms, user?.nom].filter(Boolean).join(' ') || user?.name || 'Livreur';
 

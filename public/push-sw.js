@@ -1,8 +1,9 @@
 /* global self, clients */
 // Importe par le service worker Workbox (vite.config.js > workbox.importScripts).
 // Affiche les notifications WebPush envoyees par le backend (Laravel WebPush) :
-// mission assignee, offre acceptee / non retenue, nouvelle mission disponible,
-// rappel d'echeance d'abonnement.
+// mission proposee / acceptee / refusee, offre acceptee / non retenue, nouvelle
+// mission disponible, abonnement (rappel, blocage, paiement valide/rejete),
+// inscription validee/rejetee, retrait confirme/rejete.
 
 self.addEventListener('push', (event) => {
   let payload = {};
@@ -22,7 +23,12 @@ self.addEventListener('push', (event) => {
     actions: payload.actions || [],
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  // Relaye aussi le push aux onglets ouverts : l'app recharge alors son
+  // historique de notifications (GET /livreur/notifications) et ses donnees.
+  const notifyClients = clients.matchAll({ type: 'window', includeUncontrolled: true })
+    .then((windows) => windows.forEach((w) => w.postMessage({ type: 'push', payload })));
+
+  event.waitUntil(Promise.all([self.registration.showNotification(title, options), notifyClients]));
 });
 
 self.addEventListener('notificationclick', (event) => {

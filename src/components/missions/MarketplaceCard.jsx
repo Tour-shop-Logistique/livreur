@@ -1,13 +1,17 @@
 import { Link } from 'react-router-dom';
 import { ShoppingBag, ChevronRight } from 'lucide-react';
 import { MarketplaceStatusBadge } from './StatusBadge';
+import RouteLine from './RouteLine';
 import { marketplaceDetailPath } from '../../routes';
+import { marketplacePickup, marketplaceDropoff, placeLabel } from '../../utils/missionFlow';
 import { formatPrice, formatDateTime } from '../../utils/format';
 
 // Carte d'une livraison marketplace qui m'est assignee.
 export default function MarketplaceCard({ livraison }) {
   const commande = livraison.commande || {};
-  const closed = livraison.statut === 'terminee' || livraison.statut === 'livree' || livraison.statut === 'annulee';
+  const closed = ['terminee', 'livree', 'annulee', 'refusee', 'expiree'].includes(livraison.statut);
+  const pickup = marketplacePickup(livraison);
+  const dropoff = marketplaceDropoff(livraison);
 
   return (
     <Link to={marketplaceDetailPath(livraison.id)} className="card block p-4 transition hover:shadow-raised active:scale-[0.99]">
@@ -26,6 +30,16 @@ export default function MarketplaceCard({ livraison }) {
         </div>
         <MarketplaceStatusBadge statut={livraison.statut} />
       </div>
+
+      {(pickup || dropoff) && (
+        <div className="mt-4">
+          <RouteLine
+            from={{ label: 'Retrait', title: pickup?.nom ? `${pickup.nom} · ${placeLabel(pickup)}` : placeLabel(pickup) }}
+            to={{ label: 'Livraison', title: dropoff?.nom ? `${dropoff.nom} · ${placeLabel(dropoff)}` : placeLabel(dropoff) }}
+            compact
+          />
+        </div>
+      )}
 
       <div className="divider mt-4 flex items-center justify-between pt-3">
         <div>

@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'sonner';
 import {
-  ShieldCheck, AlertTriangle, Clock, Hourglass, Receipt, RefreshCw, Smartphone, Banknote, Landmark, CreditCard, Wallet, XCircle, Info,
+  ShieldCheck, AlertTriangle, Clock, Hourglass, Receipt, RefreshCw, Smartphone, Banknote, Landmark, CreditCard, Wallet, XCircle, Info, Copy,
 } from 'lucide-react';
+import abonnementService from '../../services/abonnementService';
 import TopBar from '../../components/common/TopBar';
 import IconButton from '../../components/common/IconButton';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -45,13 +46,65 @@ const PAIEMENT_STATUT = {
   rejete: { label: 'Rejeté', tone: 'danger' },
 };
 
+// Comptes TourShop ou payer (GET /abonnement/moyens-paiement, accessible meme
+// bloque). Liste vide tant que le backoffice n'a rien configure.
+function ReceivingAccounts({ moyens }) {
+  if (moyens === null) return <div className="h-16 animate-pulse rounded-xl bg-surface-100" />;
+  if (moyens.length === 0) {
+    return (
+      <Callout tone="warning" size="sm" icon={Info}>
+        Le moyen de paiement n’est pas encore configuré par votre backoffice. Contactez-le pour savoir où payer.
+      </Callout>
+    );
+  }
+  const copy = async (numero) => {
+    try {
+      await navigator.clipboard.writeText(numero);
+      toast.success('Numéro copié');
+    } catch {
+      toast.error('Copie impossible');
+    }
+  };
+  return (
+    <ul className="space-y-2">
+      {moyens.map((m, i) => (
+        <li key={`${m.methode}-${m.numero_destinataire || i}`} className="rounded-xl border border-primary-100 bg-primary-50/60 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-surface-900">{m.libelle || 'Paiement TourShop'}</p>
+              {m.numero_destinataire && <p className="tabular font-mono text-base font-bold text-surface-900">{m.numero_destinataire}</p>}
+            </div>
+            {m.numero_destinataire && (
+              <button type="button" className="btn-secondary btn-sm shrink-0" onClick={() => copy(m.numero_destinataire)}>
+                <Copy size={14} aria-hidden="true" /> Copier
+              </button>
+            )}
+          </div>
+          {m.instructions && <p className="mt-1.5 text-xs text-surface-600">{m.instructions}</p>}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function DeclareSheet({ open, onClose, echeance, loading, onSubmit }) {
   const [methode, setMethode] = useState('mobile_money');
   const [reference, setReference] = useState('');
   const [preuve, setPreuve] = useState(null);
+  const [moyens, setMoyens] = useState(null);
 
   useEffect(() => {
-    if (open) { setMethode('mobile_money'); setReference(''); setPreuve(null); }
+    if (!open) return undefined;
+    setMethode('mobile_money'); setReference(''); setPreuve(null);
+    let alive = true;
+    abonnementService.fetchPaymentAccounts()
+      .then((list) => {
+        if (!alive) return;
+        setMoyens(list);
+        if (METHODES.some((m) => m.value === list[0]?.methode)) setMethode(list[0].methode);
+      })
+      .catch(() => alive && setMoyens([]));
+    return () => { alive = false; };
   }, [open]);
 
   return (
@@ -71,6 +124,9 @@ function DeclareSheet({ open, onClose, echeance, loading, onSubmit }) {
         className="space-y-4"
         onSubmit={(e) => { e.preventDefault(); onSubmit({ methode, referenceTransaction: reference.trim(), preuve }); }}
       >
+        <FormField label="Payer sur le compte TourShop">
+          <ReceivingAccounts moyens={moyens} />
+        </FormField>
         <FormField label="Moyen de paiement utilisé">
           <ChoiceGroup label="Moyen de paiement utilisé" options={METHODES} value={methode} onChange={setMethode} columns={3} />
         </FormField>
@@ -215,7 +271,7 @@ export default function AbonnementPage() {
       </div>
 
       {canDeclare && (
-        <StickyActionBar hint="Payez hors application vers le compte communiqué par votre backoffice, puis déclarez-le ici.">
+        <StickyActionBar hint="Payez sur le compte TourShop indiqué dans la déclaration, puis déclarez votre paiement.">
           <button type="button" className="btn-primary btn-lg w-full" onClick={() => setSheetOpen(true)}>
             {rejete ? 'Déclarer à nouveau' : "J'ai payé, déclarer mon paiement"}
           </button>

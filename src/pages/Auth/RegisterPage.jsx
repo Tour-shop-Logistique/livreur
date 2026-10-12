@@ -16,15 +16,16 @@ import { ROUTES } from '../../routes';
 import { DEFAULT_COUNTRY, findCountry } from '../../utils/countries';
 import { nationalPhone, displayPhone } from '../../utils/phone';
 import ButtonLabel from '../../components/common/ButtonLabel';
+import useCommunes from '../../hooks/useCommunes';
 
 // Inscription self-service avec verification KYC (PARCOURS_LIVREUR_API.md §1).
 // POST /register-livreur en multipart. Le compte reste inactif jusqu'a la
 // validation des documents par le backoffice.
 
 const STEPS = [
-  { key: 'identite', label: 'Identité', fields: ['nom', 'prenoms', 'telephone', 'indicatif_telephone', 'email', 'code_pays'] },
+  { key: 'identite', label: 'Identité', fields: ['nom', 'prenoms', 'telephone', 'indicatif_telephone', 'email', 'code_pays', 'ville'] },
   { key: 'piece', label: 'Pièce', fields: ['type_piece_identite', 'numero_piece_identite', 'piece_identite', 'photo_profil'] },
-  { key: 'vehicule', label: 'Véhicule', fields: ['type_vehicule', 'numero_vehicule', 'permis_de_conduire', 'zone_de_livraison_km'] },
+  { key: 'vehicule', label: 'Véhicule', fields: ['type_vehicule', 'numero_vehicule', 'permis_de_conduire'] },
   { key: 'securite', label: 'Sécurité', fields: ['password', 'password_confirmation'] },
 ];
 
@@ -71,9 +72,12 @@ export default function RegisterPage() {
   const [form, setForm] = useState({
     nom: '', prenoms: '', codePays: DEFAULT_COUNTRY.code, telephone: '', email: '',
     typePieceIdentite: 'cni', numeroPieceIdentite: '', pieceIdentite: null, photoProfil: null,
-    typeVehicule: 'moto', numeroVehicule: '', permisDeConduire: '', zoneDeLivraisonKm: '',
+    ville: '', typeVehicule: 'moto', numeroVehicule: '', permisDeConduire: '',
     password: '', passwordConfirmation: '', acceptTerms: false,
   });
+  const { communes, status: communesStatus } = useCommunes(form.codePays);
+  // Saisie libre seulement si la liste du pays ne peut pas etre chargee ou est vide.
+  const freeVille = communesStatus === 'error' || (communesStatus === 'idle' && communes.length === 0);
 
   const set = (name) => (value) => {
     setForm((f) => ({ ...f, [name]: value }));
@@ -90,13 +94,15 @@ export default function RegisterPage() {
       if (!form.nom.trim()) e.nom = 'Votre nom est requis.';
       if (form.telephone.replace(/\D/g, '').length < 6) e.telephone = 'Numéro de téléphone invalide.';
       if (!EMAIL_RE.test(form.email.trim())) e.email = 'Adresse email invalide.';
+      if (!form.ville.trim()) e.ville = "Votre ville d'exercice est requise.";
     }
     if (index === 1) {
       if (!form.numeroPieceIdentite.trim()) e.numeroPieceIdentite = 'Le numéro de la pièce est requis.';
       if (!form.pieceIdentite) e.pieceIdentite = "La photo de la pièce d'identité est requise.";
     }
     if (index === 2) {
-      if (form.zoneDeLivraisonKm !== '' && Number(form.zoneDeLivraisonKm) < 0) e.zoneDeLivraisonKm = 'Valeur invalide.';
+      if (!form.numeroVehicule.trim()) e.numeroVehicule = "L'immatriculation du véhicule est requise.";
+      if (!form.permisDeConduire.trim()) e.permisDeConduire = 'Le numéro de permis de conduire est requis.';
     }
     if (index === 3) {
       if (form.password.length < 8) e.password = '8 caractères minimum.';
@@ -140,7 +146,7 @@ export default function RegisterPage() {
       typeVehicule: form.typeVehicule,
       numeroVehicule: form.numeroVehicule.trim(),
       permisDeConduire: form.permisDeConduire.trim(),
-      zoneDeLivraisonKm: form.zoneDeLivraisonKm,
+      ville: form.ville.trim(),
     }));
 
     if (registerLivreur.fulfilled.match(result)) {
@@ -197,6 +203,24 @@ export default function RegisterPage() {
                 <ChevronDown size={16} className="shrink-0 text-surface-400" aria-hidden="true" />
               </button>
             </FormField>
+            <FormField label="Ville d'exercice" htmlFor="ville" error={err('ville', 'ville')} hint="Vous recevrez les missions et livraisons de cette ville.">
+              {freeVille ? (
+                <input id="ville" autoComplete="address-level2" maxLength={100} className={`input-field ${err('ville', 'ville') ? 'input-error' : ''}`} value={form.ville} onChange={setInput('ville')} />
+              ) : (
+                <select
+                  id="ville"
+                  className={`input-field ${err('ville', 'ville') ? 'input-error' : ''}`}
+                  value={form.ville}
+                  onChange={setInput('ville')}
+                  disabled={communesStatus === 'loading'}
+                >
+                  <option value="">{communesStatus === 'loading' ? 'Chargement des villes…' : 'Choisir une ville'}</option>
+                  {communes.map((c) => (
+                    <option key={c.id} value={c.nom}>{c.nom}</option>
+                  ))}
+                </select>
+              )}
+            </FormField>
             <FormField label="Téléphone" htmlFor="telephone" error={err('telephone', 'telephone')}>
               <PhoneInput id="telephone" country={form.codePays} lockCountry value={form.telephone} onChange={set('telephone')} invalid={Boolean(err('telephone', 'telephone'))} />
             </FormField>
@@ -228,17 +252,11 @@ export default function RegisterPage() {
             <FormField label="Type de véhicule" error={err('typeVehicule', 'type_vehicule')}>
               <ChoiceGroup label="Type de véhicule" options={VEHICULES} value={form.typeVehicule} onChange={set('typeVehicule')} size="lg" />
             </FormField>
-            <FormField label="Immatriculation" htmlFor="numero-vehicule" optional error={err('numeroVehicule', 'numero_vehicule')}>
-              <input id="numero-vehicule" placeholder="AB-1234-CI" className="input-field uppercase" value={form.numeroVehicule} onChange={setInput('numeroVehicule')} />
+            <FormField label="Immatriculation" htmlFor="numero-vehicule" error={err('numeroVehicule', 'numero_vehicule')}>
+              <input id="numero-vehicule" placeholder="AB-1234-CI" maxLength={50} className={`input-field uppercase ${err('numeroVehicule', 'numero_vehicule') ? 'input-error' : ''}`} value={form.numeroVehicule} onChange={setInput('numeroVehicule')} />
             </FormField>
-            <FormField label="Numéro de permis de conduire" htmlFor="permis" optional error={err('permisDeConduire', 'permis_de_conduire')}>
-              <input id="permis" className="input-field uppercase" value={form.permisDeConduire} onChange={setInput('permisDeConduire')} />
-            </FormField>
-            <FormField label="Rayon d'intervention" htmlFor="zone" optional error={err('zoneDeLivraisonKm', 'zone_de_livraison_km')}>
-              <div className="relative">
-                <input id="zone" type="number" min="0" inputMode="numeric" placeholder="15" className="input-field pr-12" value={form.zoneDeLivraisonKm} onChange={setInput('zoneDeLivraisonKm')} />
-                <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm text-surface-400">km</span>
-              </div>
+            <FormField label="Numéro de permis de conduire" htmlFor="permis" error={err('permisDeConduire', 'permis_de_conduire')}>
+              <input id="permis" maxLength={100} className={`input-field uppercase ${err('permisDeConduire', 'permis_de_conduire') ? 'input-error' : ''}`} value={form.permisDeConduire} onChange={setInput('permisDeConduire')} />
             </FormField>
           </div>
         )}
@@ -258,6 +276,7 @@ export default function RegisterPage() {
                 <div className="flex justify-between gap-3"><dt>Nom</dt><dd className="truncate font-medium text-surface-800">{[form.prenoms, form.nom].filter(Boolean).join(' ')}</dd></div>
                 <div className="flex justify-between gap-3"><dt>Téléphone</dt><dd className="tabular font-medium text-surface-800">{displayPhone(country.indicatif, nationalPhone(form.telephone))}</dd></div>
                 <div className="flex justify-between gap-3"><dt>Pays</dt><dd className="font-medium text-surface-800">{country.nom}</dd></div>
+                <div className="flex justify-between gap-3"><dt>Ville</dt><dd className="truncate font-medium text-surface-800">{form.ville}</dd></div>
                 <div className="flex justify-between gap-3"><dt>Pièce</dt><dd className="font-medium text-surface-800">{PIECES.find((p) => p.value === form.typePieceIdentite)?.label}</dd></div>
                 <div className="flex justify-between gap-3"><dt>Véhicule</dt><dd className="font-medium capitalize text-surface-800">{form.typeVehicule}</dd></div>
               </dl>
@@ -295,7 +314,11 @@ export default function RegisterPage() {
         open={countryPickerOpen}
         onClose={() => setCountryPickerOpen(false)}
         currentCode={form.codePays}
-        onSelect={(c) => set('codePays')(c.code)}
+        onSelect={(c) => {
+          // Les villes dependent du pays : on reinitialise la selection.
+          if (c.code !== form.codePays) set('ville')('');
+          set('codePays')(c.code);
+        }}
         title="Pays d'exercice"
         description="Votre dossier sera validé par l'équipe TourShop de ce pays."
       />

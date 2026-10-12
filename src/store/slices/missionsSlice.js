@@ -2,8 +2,11 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import missionService from '../../services/missionService';
 import { apiErrorMessage } from '../../services/api';
 import { expeditionPatchAfter } from '../../utils/missionFlow';
+import { loadPreferredCity, savePreferredCity } from '../../utils/cityFilter';
 
 // Missions d'expedition classiques (PARCOURS_LIVREUR_API.md §4) :
+//  - proposals : missions groupage `proposee` par le backoffice, a accepter ou
+//                refuser sous 15 min (§4.1bis)
 //  - active    : missions `assignee` (un livreur n'a jamais 2 missions actives)
 //  - history   : toutes mes missions, paginees, filtrables par statut
 //  - available : missions EXPRESS ouvertes au reseau (offres de prix)
@@ -28,12 +31,24 @@ const saveOffers = (offers) => {
 };
 
 const initialState = {
+  proposals: { items: [], status: 'idle', error: null, loaded: false },
   active: { items: [], status: 'idle', error: null, loaded: false },
   history: { items: [], status: 'idle', error: null, page: 1, lastPage: 1, statut: '', loaded: false },
   available: { items: [], status: 'idle', error: null, loaded: false },
   offers: loadOffers(),
   pendingAction: null, // id de la mission en cours d'action
   incoming: null, // id d'une mission express tout juste publiee (feuille "Nouvelle mission")
+  // Filtre geographique des listes "disponibles" (missions express ET livraisons
+  // marketplace, §4.5 / MARKETPLACE §7.1) : par defaut la ville du profil
+  // (cote serveur) ; `ville` = autre ville (memorisee), `lat`/`lng` = pres de moi.
+  geoFilter: { ville: loadPreferredCity(), lat: null, lng: null },
+};
+
+// Parametres de requete issus du filtre (la position prime sur la ville).
+export const geoParams = (state) => {
+  const { ville, lat, lng } = state.missions.geoFilter;
+  if (lat != null && lng != null) return { lat, lng, ville: ville || undefined };
+  return { ville: ville || undefined };
 };
 
 const paginated = (data) => {
@@ -53,6 +68,41 @@ export const fetchActiveMissions = createAsyncThunk(
   }
 );
 
+export const fetchMissionProposals = createAsyncThunk(
+  'missions/fetchProposals',
+  async (_, { rejectWithValue }) => {
+    try {
+      return paginated(await missionService.fetchMissions({ statut: 'proposee' })).items;
+    } catch (err) {
+      return rejectWithValue(apiErrorMessage(err, 'Impossible de charger les missions proposées.'));
+    }
+  }
+);
+
+export const acceptMissionProposal = createAsyncThunk(
+  'missions/acceptProposal',
+  async (missionId, { rejectWithValue }) => {
+    try {
+      const data = await missionService.acceptProposal(missionId);
+      return { missionId, mission: data?.mission };
+    } catch (err) {
+      return rejectWithValue(apiErrorMessage(err, "Impossible d'accepter cette mission."));
+    }
+  }
+);
+
+export const refuseMissionProposal = createAsyncThunk(
+  'missions/refuseProposal',
+  async ({ missionId, motif }, { rejectWithValue }) => {
+    try {
+      await missionService.refuseProposal(missionId, motif);
+      return missionId;
+    } catch (err) {
+      return rejectWithValue(apiErrorMessage(err, 'Impossible de refuser cette mission.'));
+    }
+  }
+);
+
 export const fetchMissionHistory = createAsyncThunk(
   'missions/fetchHistory',
   async ({ statut = '', page = 1 } = {}, { rejectWithValue }) => {
@@ -67,9 +117,9 @@ export const fetchMissionHistory = createAsyncThunk(
 
 export const fetchAvailableMissions = createAsyncThunk(
   'missions/fetchAvailable',
-  async (_, { rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
     try {
-      const data = await missionService.fetchAvailableMissions();
+      const data = await missionService.fetchAvailableMissions(geoParams(getState()));
       return data?.missions ?? [];
     } catch (err) {
       return rejectWithValue(apiErrorMessage(err, 'Impossible de charger les missions disponibles.'));
@@ -150,9 +200,49 @@ const missionsSlice = createSlice({
     clearIncoming(state) {
       state.incoming = null;
     },
+    // payload : { ville?, lat?, lng? } — remplace le filtre courant.
+    setGeoFilter(state, action) {
+      const { ville = '', lat = null, lng = null } = action.payload || {};
+      state.geoFilter = { ville, lat, lng };
+      savePreferredCity(ville);
+    },
+    removeProposal(state, action) {
+      state.proposals.items = state.proposals.items.filter((m) => String(m.id) !== String(action.payload));
+    },
   },
   extraReducers: (builder) => {
     builder
+      .addCase(fetchMissionProposals.pending, (state) => { state.proposals.status = 'loading'; state.proposals.error = null; })
+      .addCase(fetchMissionProposals.fulfilled, (state, action) => {
+        state.proposals = { items: action.payload, status: 'idle', error: null, loaded: true };
+      })
+      .addCase(fetchMissionProposals.rejected, (state, action) => {
+        state.proposals.status = 'error';
+        state.proposals.error = action.payload;
+        state.proposals.loaded = true;
+      })
+
+      .addCase(acceptMissionProposal.pending, (state, action) => { state.pendingAction = action.meta.arg; })
+      .addCase(acceptMissionProposal.rejected, (state) => { state.pendingAction = null; })
+      .addCase(acceptMissionProposal.fulfilled, (state, action) => {
+        state.pendingAction = null;
+        const { missionId, mission } = action.payload;
+        const proposal = state.proposals.items.find((m) => String(m.id) === String(missionId));
+        state.proposals.items = state.proposals.items.filter((m) => String(m.id) !== String(missionId));
+        const accepted = { ...(proposal || {}), ...(mission || {}), statut: 'assignee' };
+        if (!mission?.expedition && proposal?.expedition) accepted.expedition = proposal.expedition;
+        if (accepted.id && !state.active.items.some((m) => String(m.id) === String(missionId))) {
+          state.active.items = [accepted, ...state.active.items];
+        }
+      })
+
+      .addCase(refuseMissionProposal.pending, (state, action) => { state.pendingAction = action.meta.arg.missionId; })
+      .addCase(refuseMissionProposal.rejected, (state) => { state.pendingAction = null; })
+      .addCase(refuseMissionProposal.fulfilled, (state, action) => {
+        state.pendingAction = null;
+        state.proposals.items = state.proposals.items.filter((m) => String(m.id) !== String(action.payload));
+      })
+
       .addCase(fetchActiveMissions.pending, (state) => { state.active.status = 'loading'; state.active.error = null; })
       .addCase(fetchActiveMissions.fulfilled, (state, action) => {
         state.active = { items: action.payload, status: 'idle', error: null, loaded: true };
@@ -226,11 +316,16 @@ const missionsSlice = createSlice({
   },
 });
 
-export const { removeAvailable, clearOffer, setIncoming, clearIncoming } = missionsSlice.actions;
+export const {
+  removeAvailable, clearOffer, setIncoming, clearIncoming, removeProposal, setGeoFilter,
+} = missionsSlice.actions;
 
 export const selectMissionById = (state, id) => {
-  const { active, history, available } = state.missions;
-  return [...active.items, ...history.items, ...available.items].find((m) => String(m.id) === String(id)) || null;
+  const {
+    proposals, active, history, available,
+  } = state.missions;
+  return [...active.items, ...proposals.items, ...history.items, ...available.items]
+    .find((m) => String(m.id) === String(id)) || null;
 };
 
 export default missionsSlice.reducer;

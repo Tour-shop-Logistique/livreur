@@ -9,15 +9,38 @@ const urlBase64ToUint8Array = (base64) => {
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 };
 
+// Contrat : { success, public_key }. Autres noms lus en repli (clé VAPID,
+// éventuellement imbriquée sous `data`).
+const extractPublicKey = (payload) => {
+  const src = payload?.data && typeof payload.data === 'object' ? { ...payload, ...payload.data } : payload;
+  const value = src?.public_key ?? src?.publicKey ?? src?.vapid_public_key ?? src?.vapidPublicKey ?? src?.key;
+  return typeof value === 'string' ? value.trim() : '';
+};
+
 export const isPushSupported = () =>
   typeof window !== 'undefined'
   && 'serviceWorker' in navigator
   && 'PushManager' in window
   && 'Notification' in window;
 
+// Le push marche dans Chrome (ordinateur et Android) SANS installer l'app : il
+// suffit qu'un service worker soit actif. Il n'est enregistre que dans la version
+// construite (`npm run build`) : en `npm run dev` il n'existe pas. `ready` attend
+// l'activation (le clic peut arriver avant la fin de l'enregistrement).
+const WORKER_TIMEOUT_MS = 8000;
+
 const getRegistration = async () => {
-  const reg = await navigator.serviceWorker.getRegistration();
-  if (!reg) throw new Error("Le service worker n'est pas actif (disponible uniquement sur l'app installee / build de production).");
+  const reg = await Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise((resolve) => setTimeout(() => resolve(null), WORKER_TIMEOUT_MS)),
+  ]);
+  if (!reg) {
+    throw new Error(
+      import.meta.env.DEV
+        ? "Le service worker n'est pas actif en mode developpement : testez sur la version construite (npm run build, puis npm run preview) ou sur le site deploye."
+        : "Le service worker n'est pas encore pret. Rechargez la page puis reessayez."
+    );
+  }
   return reg;
 };
 
@@ -30,16 +53,35 @@ const getCurrentSubscription = async () => {
 // GET /push/public-key -> POST /push/subscribe { endpoint, keys: { p256dh, auth } }
 const subscribe = async () => {
   if (!isPushSupported()) throw new Error('Les notifications push ne sont pas prises en charge sur cet appareil.');
+  // Deja refuse : le navigateur ne redemande pas, il faut le reactiver a la main.
+  if (Notification.permission === 'denied') {
+    throw new Error("Les notifications sont bloquees pour ce site. Autorisez-les dans les reglages du navigateur (cadenas a cote de l'adresse > Notifications).");
+  }
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') throw new Error('Autorisation de notification refusee.');
 
   const reg = await getRegistration();
   const { data } = await api.get('/push/public-key');
-  const subscription = (await reg.pushManager.getSubscription())
-    || await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(data.public_key),
-    });
+  // Clé VAPID absente (non configurée côté serveur) : sans elle aucun abonnement
+  // n'est possible — message clair plutôt qu'un TypeError sur `null.length`.
+  const publicKey = extractPublicKey(data);
+  if (!publicKey) {
+    console.warn('[push] Réponse de GET /push/public-key sans clé exploitable :', data);
+    throw new Error("Les notifications ne sont pas encore disponibles : le serveur n'a pas de clé d'envoi configurée.");
+  }
+
+  const options = { userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) };
+  // subscribe() renvoie l'abonnement existant si la clé est la même, et lève
+  // InvalidStateError si un ancien abonnement a été créé avec une autre clé :
+  // on le supprime alors et on se réabonne avec la clé actuelle.
+  let subscription;
+  try {
+    subscription = await reg.pushManager.subscribe(options);
+  } catch (err) {
+    if (err?.name !== 'InvalidStateError') throw err;
+    await (await reg.pushManager.getSubscription())?.unsubscribe();
+    subscription = await reg.pushManager.subscribe(options);
+  }
 
   const json = subscription.toJSON();
   await api.post('/push/subscribe', { endpoint: json.endpoint, keys: json.keys });

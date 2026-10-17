@@ -157,7 +157,7 @@ function InfoSheet({ open, onClose, user }) {
           </FormField>
         </div>
         <FormField label="Téléphone" htmlFor="p-tel" error={errors?.telephone?.[0]}>
-          <input id="p-tel" type="tel" inputMode="tel" className="input-field" value={form.telephone || ''} onChange={set('telephone')} required />
+          <input id="p-tel" type="tel" inputMode="numeric" pattern="[0-9]*" className="input-field" value={form.telephone || ''} onChange={(e) => set('telephone')({ target: { value: e.target.value.replace(/\D/g, '') } })} required />
         </FormField>
         <FormField label="Email" htmlFor="p-email" error={errors?.email?.[0]} hint="Une nouvelle vérification sera demandée si vous le modifiez.">
           <input id="p-email" type="email" inputMode="email" className="input-field" value={form.email || ''} onChange={set('email')} required />

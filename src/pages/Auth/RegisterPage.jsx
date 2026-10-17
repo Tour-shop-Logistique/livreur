@@ -23,9 +23,9 @@ import useCommunes from '../../hooks/useCommunes';
 // validation des documents par le backoffice.
 
 const STEPS = [
-  { key: 'identite', label: 'Identité', fields: ['nom', 'prenoms', 'telephone', 'indicatif_telephone', 'email', 'code_pays', 'ville'] },
+  { key: 'identite', label: 'Identité', fields: ['nom', 'prenoms', 'telephone', 'indicatif_telephone', 'whatsapp_number', 'email', 'code_pays', 'ville'] },
   { key: 'piece', label: 'Pièce', fields: ['type_piece_identite', 'numero_piece_identite', 'piece_identite', 'photo_profil'] },
-  { key: 'vehicule', label: 'Véhicule', fields: ['type_vehicule', 'numero_vehicule', 'permis_de_conduire'] },
+  { key: 'vehicule', label: 'Véhicule', fields: ['type_vehicule', 'numero_vehicule', 'permis_de_conduire', 'zone_de_livraison_km'] },
   { key: 'securite', label: 'Sécurité', fields: ['password', 'password_confirmation'] },
 ];
 
@@ -40,6 +40,8 @@ const VEHICULES = [
   { value: 'voiture', label: 'Voiture', icon: Car },
 ];
 
+// WhatsApp : format E.164 strict (PARCOURS §1).
+const WHATSAPP_RE = /^\+[1-9]\d{6,14}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function Stepper({ current }) {
@@ -70,9 +72,9 @@ export default function RegisterPage() {
   const [errors, setErrors] = useState({});
   const [countryPickerOpen, setCountryPickerOpen] = useState(false);
   const [form, setForm] = useState({
-    nom: '', prenoms: '', codePays: DEFAULT_COUNTRY.code, telephone: '', email: '',
+    nom: '', prenoms: '', codePays: DEFAULT_COUNTRY.code, telephone: '', whatsappNumber: '', whatsappCountry: DEFAULT_COUNTRY.code, email: '',
     typePieceIdentite: 'cni', numeroPieceIdentite: '', pieceIdentite: null, photoProfil: null,
-    ville: '', typeVehicule: 'moto', numeroVehicule: '', permisDeConduire: '',
+    ville: '', typeVehicule: 'moto', numeroVehicule: '', permisDeConduire: '', zoneDeLivraisonKm: '',
     password: '', passwordConfirmation: '', acceptTerms: false,
   });
   const { communes, status: communesStatus } = useCommunes(form.codePays);
@@ -88,11 +90,15 @@ export default function RegisterPage() {
   // Erreur locale en priorite, sinon erreur serveur (cle snake_case Laravel).
   const err = (localKey, apiKey) => errors[localKey] || fieldErrors?.[apiKey]?.[0];
 
+  // E.164 : +indicatif + chiffres nationaux (sans 0 initial).
+  const whatsappFull = () => `${findCountry(form.whatsappCountry).indicatif}${form.whatsappNumber.replace(/^0+/, '')}`;
+
   const validateStep = (index) => {
     const e = {};
     if (index === 0) {
       if (!form.nom.trim()) e.nom = 'Votre nom est requis.';
       if (form.telephone.replace(/\D/g, '').length < 6) e.telephone = 'Numéro de téléphone invalide.';
+      if (!WHATSAPP_RE.test(whatsappFull())) e.whatsappNumber = 'Numéro WhatsApp invalide.';
       if (!EMAIL_RE.test(form.email.trim())) e.email = 'Adresse email invalide.';
       if (!form.ville.trim()) e.ville = "Votre ville d'exercice est requise.";
     }
@@ -103,6 +109,7 @@ export default function RegisterPage() {
     if (index === 2) {
       if (!form.numeroVehicule.trim()) e.numeroVehicule = "L'immatriculation du véhicule est requise.";
       if (!form.permisDeConduire.trim()) e.permisDeConduire = 'Le numéro de permis de conduire est requis.';
+      if (form.zoneDeLivraisonKm !== '' && !(Number(form.zoneDeLivraisonKm) >= 0)) e.zoneDeLivraisonKm = 'Rayon invalide.';
     }
     if (index === 3) {
       if (form.password.length < 8) e.password = '8 caractères minimum.';
@@ -135,6 +142,8 @@ export default function RegisterPage() {
       prenoms: form.prenoms.trim(),
       telephone,
       indicatifTelephone: country.indicatif,
+      whatsappNumber: whatsappFull(),
+      zoneDeLivraisonKm: form.zoneDeLivraisonKm,
       email,
       password: form.password,
       passwordConfirmation: form.passwordConfirmation,
@@ -224,6 +233,9 @@ export default function RegisterPage() {
             <FormField label="Téléphone" htmlFor="telephone" error={err('telephone', 'telephone')}>
               <PhoneInput id="telephone" country={form.codePays} lockCountry value={form.telephone} onChange={set('telephone')} invalid={Boolean(err('telephone', 'telephone'))} />
             </FormField>
+            <FormField label="Numéro WhatsApp" htmlFor="whatsapp" error={err('whatsappNumber', 'whatsapp_number')} hint="Chiffres uniquement, avec l'indicatif du pays choisi.">
+              <PhoneInput id="whatsapp" country={form.whatsappCountry} onCountryChange={set('whatsappCountry')} value={form.whatsappNumber} onChange={set('whatsappNumber')} showHint={false} invalid={Boolean(err('whatsappNumber', 'whatsapp_number'))} />
+            </FormField>
             <FormField label="Email" htmlFor="email" error={err('email', 'email')} hint="Un code de vérification vous sera envoyé.">
               <input id="email" type="email" inputMode="email" autoComplete="email" className={`input-field ${err('email', 'email') ? 'input-error' : ''}`} value={form.email} onChange={setInput('email')} />
             </FormField>
@@ -257,6 +269,9 @@ export default function RegisterPage() {
             </FormField>
             <FormField label="Numéro de permis de conduire" htmlFor="permis" error={err('permisDeConduire', 'permis_de_conduire')}>
               <input id="permis" maxLength={100} className={`input-field uppercase ${err('permisDeConduire', 'permis_de_conduire') ? 'input-error' : ''}`} value={form.permisDeConduire} onChange={setInput('permisDeConduire')} />
+            </FormField>
+            <FormField label="Rayon de livraison (km)" htmlFor="zone" optional error={err('zoneDeLivraisonKm', 'zone_de_livraison_km')} hint="Utilisé pour filtrer les missions près de vous.">
+              <input id="zone" type="number" min="0" step="1" inputMode="numeric" className="input-field" value={form.zoneDeLivraisonKm} onChange={setInput('zoneDeLivraisonKm')} />
             </FormField>
           </div>
         )}

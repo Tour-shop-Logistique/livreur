@@ -29,12 +29,13 @@ export default function PhoneInput({ id, country, onCountryChange, value, onChan
         <input
           id={id}
           type="tel"
-          inputMode="tel"
+          inputMode="numeric"
+          pattern="[0-9]*"
           autoComplete="tel-national"
           placeholder="07 00 00 00 00"
           className="min-w-0 flex-1 bg-transparent px-3 py-3 text-sm text-surface-900 placeholder:text-surface-400 focus:outline-none"
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))}
         />
       </div>
       {hint && <p className="mt-1 text-xs text-surface-500">Numéro national : {hint}</p>}

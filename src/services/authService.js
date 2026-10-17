@@ -32,6 +32,7 @@ const registerLivreur = async (form) => {
     prenoms: form.prenoms,
     telephone: form.telephone,
     indicatif_telephone: form.indicatifTelephone,
+    whatsapp_number: form.whatsappNumber,
     email: form.email,
     password: form.password,
     password_confirmation: form.passwordConfirmation,
@@ -43,6 +44,7 @@ const registerLivreur = async (form) => {
     type_vehicule: form.typeVehicule,
     numero_vehicule: form.numeroVehicule,
     permis_de_conduire: form.permisDeConduire,
+    zone_de_livraison_km: form.zoneDeLivraisonKm === '' ? undefined : Number(form.zoneDeLivraisonKm),
     // Ville d'exercice (requise, communes du pays) : filtre les missions/livraisons disponibles.
     ville: form.ville?.trim(),
   });

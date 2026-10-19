@@ -6,23 +6,31 @@ import {
 } from 'lucide-react';
 import AvailabilitySwitch from '../../components/common/AvailabilitySwitch';
 import useAvailability from '../../hooks/useAvailability';
+import useAcceptExpress from '../../hooks/useAcceptExpress';
 import Callout from '../../components/common/Callout';
 import AbonnementBanner from '../../components/common/AbonnementBanner';
 import ReadinessCard from '../../components/common/ReadinessCard';
 import RealtimeStatus from '../../components/common/RealtimeStatus';
+import ButtonLabel from '../../components/common/ButtonLabel';
 import StepBar from '../../components/missions/StepBar';
 import { expeditionRoute, expressRoute } from '../../components/missions/missionRoute';
 import { ROUTES, missionDetailPath, marketplaceDetailPath } from '../../routes';
 import {
   expeditionAction, expeditionPhase, expeditionStepIndex, marketplaceAction, marketplaceStepIndex,
   isActiveMarketplace, isMarketplaceProposal, isProposalExpired, marketplacePickup, marketplaceDropoff,
-  placeLabel, addressLine, mapsLink, EXPEDITION_STEPS, MARKETPLACE_STEPS, MISSION_TYPE_LABEL,
+  placeLabel, addressLine, mapsLink, EXPEDITION_STEPS, MARKETPLACE_STEPS, MISSION_TYPE_LABEL, MISSION_MODE_LABEL,
+  missionPrice,
 } from '../../utils/missionFlow';
 import { formatDistance } from '../../services/routingService';
-import { formatPrice, initials } from '../../utils/format';
+import { formatPrice, currencyLabel, fullName } from '../../utils/format';
 import { selectUnreadCount } from '../../store/slices/notificationsSlice';
 import useCountdown, { formatCountdown } from '../../hooks/useCountdown';
 import useTodayStats from '../../hooks/useTodayStats';
+import logoMark from '../../assets/logo_mark.png';
+
+// Accueil du design "Plume" : en-tete navy (identite, service, chiffres du
+// jour) signe par la bande aux 4 couleurs du logo, puis la mission en cours et
+// les courses autour de soi.
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -35,45 +43,54 @@ const greeting = () => {
 const amount = (v) => formatPrice(v, '').trim();
 const plural = (n, word) => `${n} ${word}${n > 1 ? 's' : ''}`;
 
+// Prix en grand, devise en petit.
+function Price({ value, className = 'text-lead', currencyClass = 'text-xs' }) {
+  return (
+    <span className={`tabular font-heading font-bold text-navy-950 ${className}`}>
+      {amount(value)} <span className={`font-sans font-semibold text-surface-500 ${currencyClass}`}>{currencyLabel()}</span>
+    </span>
+  );
+}
+
 // Mission en cours = element central de l'accueil (un livreur n'a jamais plus
 // d'une mission d'expedition active, §3) : prochaine etape, progression et
 // actions directes (appeler, itineraire) sans ouvrir le detail.
 function ActiveMissionCard({
-  to, kicker, title, detail, price, steps, current, phone, mapsUrl, actionLabel,
+  to, status, kicker, title, detail, price, steps, current, phone, mapsUrl, actionLabel,
 }) {
   return (
-    <section className="card overflow-hidden shadow-raised" aria-labelledby="mission-en-cours">
-      <div className="brand-gradient flex items-center justify-between gap-3 px-4 py-3 text-white">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold">
-          <span className="status-dot animate-pulse-dot bg-accent-300" aria-hidden="true" /> Mission en cours
+    <section className="card-raised overflow-hidden" aria-labelledby="mission-en-cours">
+      <div className="flex items-center justify-between gap-3 px-4 pt-3.5">
+        <span className="badge bg-teal-50 text-teal-700">
+          <span className="status-dot animate-pulse-dot bg-teal-500" aria-hidden="true" /> {status}
         </span>
-        <span className="tabular text-lead font-bold">{formatPrice(price)}</span>
+        {price != null && <Price value={price} className="text-lg" />}
       </div>
 
-      <div className="space-y-3.5 p-4">
-        <div className="min-w-0">
-          <p className="text-caption font-semibold uppercase tracking-wide text-primary-700">{kicker}</p>
-          <h2 id="mission-en-cours" className="mt-0.5 truncate text-lg font-semibold text-surface-900">{title || 'Voir la mission'}</h2>
-          {detail && <p className="truncate text-sm text-surface-600">{detail}</p>}
-        </div>
+      <div className="space-y-1 px-4 pt-3">
+        <p className="text-xs font-bold uppercase tracking-[0.06em] text-primary-600">{kicker}</p>
+        <h2 id="mission-en-cours" className="truncate text-lg font-bold text-navy-950">{title || 'Voir la mission'}</h2>
+        {detail && <p className="truncate text-sm text-surface-500">{detail}</p>}
+      </div>
 
+      <div className="px-4 pt-3.5">
         <StepBar steps={steps} current={current} />
+      </div>
 
-        <div className="flex gap-2.5">
-          {phone && (
-            <a href={`tel:${phone}`} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-surface-200 text-primary-600 transition active:scale-95" aria-label="Appeler">
-              <Phone size={20} aria-hidden="true" />
-            </a>
-          )}
-          {mapsUrl && (
-            <a href={mapsUrl} target="_blank" rel="noreferrer" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-surface-200 text-primary-600 transition active:scale-95" aria-label="Ouvrir l'itinéraire">
-              <Navigation size={20} aria-hidden="true" />
-            </a>
-          )}
-          <Link to={to} className="btn-primary flex-1">
-            {actionLabel} <ArrowRight size={18} aria-hidden="true" />
-          </Link>
-        </div>
+      <div className="flex gap-2.5 p-4">
+        {phone && (
+          <a href={`tel:${phone}`} className="flex h-[3.25rem] w-[3.25rem] shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600 transition active:scale-95" aria-label="Appeler">
+            <Phone size={20} aria-hidden="true" />
+          </a>
+        )}
+        {mapsUrl && (
+          <a href={mapsUrl} target="_blank" rel="noreferrer" className="flex h-[3.25rem] w-[3.25rem] shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600 transition active:scale-95" aria-label="Ouvrir l'itinéraire">
+            <Navigation size={20} aria-hidden="true" />
+          </a>
+        )}
+        <Link to={to} className="btn-primary flex-1">
+          {actionLabel} <ArrowRight size={18} strokeWidth={2.4} aria-hidden="true" />
+        </Link>
       </div>
     </section>
   );
@@ -95,10 +112,11 @@ function ExpeditionHero({ mission }) {
   return (
     <ActiveMissionCard
       to={missionDetailPath(mission.id)}
-      kicker={`${MISSION_TYPE_LABEL[mission.type] || 'Mission'} · Étape ${Math.min(current + 2, steps.length)} sur ${steps.length}`}
+      status={`Étape ${Math.min(current + 2, steps.length)} sur ${steps.length}`}
+      kicker={`${MISSION_TYPE_LABEL[mission.type] || 'Mission'} · ${MISSION_MODE_LABEL[mission.mode] || mission.mode || ''}`}
       title={point?.title}
       detail={point?.detail}
-      price={mission.montant_final}
+      price={missionPrice(mission)}
       steps={steps}
       current={current}
       phone={stop?.telephone}
@@ -116,7 +134,8 @@ function MarketplaceHero({ livraison }) {
   return (
     <ActiveMissionCard
       to={marketplaceDetailPath(livraison.id)}
-      kicker={`Marketplace · ${livraison.statut === 'en_cours' ? "En route vers l'acheteur" : 'À récupérer chez le vendeur'}`}
+      status={livraison.statut === 'en_cours' ? "En route vers l'acheteur" : 'À récupérer'}
+      kicker="Marketplace"
       title={stop?.nom || placeLabel(stop)}
       detail={addressLine(stop)}
       price={livraison.montant_final}
@@ -133,47 +152,48 @@ function MarketplaceHero({ livraison }) {
 function OfflineHero({ count }) {
   const { loading, toggle } = useAvailability();
   return (
-    <section className="flex flex-col items-center gap-4 rounded-3xl bg-primary-950 px-5 py-6 text-center text-white" aria-labelledby="hors-ligne-titre">
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-xs font-semibold text-primary-100">
-        <span className="status-dot bg-surface-400" aria-hidden="true" /> Hors ligne
+    <section className="flex flex-col items-center gap-3 rounded-3xl bg-navy-900 px-5 py-7 text-center text-white" aria-labelledby="hors-ligne-titre">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-xs font-semibold text-navy-100">
+        <span className="status-dot bg-navy-300" aria-hidden="true" /> Hors ligne
       </span>
-      <h2 id="hors-ligne-titre" className="text-xl font-semibold leading-snug">
-        {count > 0 ? `${plural(count, 'mission')} ${count > 1 ? 'vous attendent' : 'vous attend'} dans votre zone` : 'Prêt pour une nouvelle tournée ?'}
+      <h2 id="hors-ligne-titre" className="text-xl font-bold leading-snug">
+        {count > 0 ? `${plural(count, 'course')} ${count > 1 ? 'vous attendent' : 'vous attend'} dans votre zone` : 'Prêt pour une nouvelle tournée ?'}
       </h2>
       <button
         type="button"
         onClick={toggle}
         disabled={loading}
         aria-busy={loading}
-        className="my-4 flex h-40 w-40 flex-col items-center justify-center gap-2 rounded-full bg-primary-600 shadow-brand ring-[12px] ring-primary-500/25 transition active:scale-95 disabled:opacity-60"
+        className="my-4 flex h-40 w-40 flex-col items-center justify-center gap-2 rounded-full bg-accent-400 text-accent-900 shadow-lime ring-[12px] ring-accent-400/20 transition active:scale-95 disabled:opacity-60"
       >
-        <Power size={36} strokeWidth={2.2} aria-hidden="true" />
-        <span className="text-base font-bold">{loading ? 'Connexion…' : 'Passer en ligne'}</span>
+        <Power size={36} strokeWidth={2.4} aria-hidden="true" />
+        <span className="text-base font-extrabold">{loading ? 'Connexion…' : 'Passer en ligne'}</span>
       </button>
-      <p className="text-sm leading-relaxed text-primary-200">Vous recevrez les missions express et les assignations du backoffice.</p>
+      <p className="text-sm leading-relaxed text-navy-200">Vous recevrez les courses express et les assignations de l'agence.</p>
     </section>
   );
 }
 
+// Chiffres du jour, poses sur l'en-tete navy.
 function TodayStrip({ today, solde }) {
-  const cell = 'flex min-w-0 flex-col items-center gap-0.5 px-1';
-  const label = 'text-caption font-medium uppercase tracking-wide text-surface-500';
+  const cell = 'flex min-w-0 flex-col gap-0.5';
+  const label = 'text-caption font-semibold uppercase tracking-[0.06em] text-navy-300';
   return (
-    <Link to={ROUTES.EARNINGS} className="card grid grid-cols-3 divide-x divide-surface-100 py-3.5 transition hover:shadow-raised active:scale-[0.99]" aria-label="Voir mes gains">
+    <Link to={ROUTES.EARNINGS} className="grid grid-cols-3 gap-3 rounded-2xl transition active:opacity-80" aria-label="Voir mes gains">
       <span className={cell}>
-        <span className={label}>Aujourd'hui</span>
-        <span className="tabular truncate text-title font-bold text-surface-900">{today ? amount(today.gains) : '—'}</span>
-        <span className="text-caption text-surface-500">FCFA</span>
+        <span className={label}>Gagné aujourd'hui</span>
+        <span className="tabular truncate font-heading text-[1.3rem] font-bold leading-tight">{today ? amount(today.gains) : '—'}</span>
+        <span className="text-xs text-navy-200">{currencyLabel()}</span>
       </span>
-      <span className={cell}>
+      <span className={`${cell} border-l border-white/10 pl-3`}>
         <span className={label}>Courses</span>
-        <span className="tabular text-title font-bold text-surface-900">{today ? today.missions : '—'}</span>
-        <span className="text-caption text-surface-500">{today?.missions > 1 ? 'terminées' : 'terminée'}</span>
+        <span className="tabular font-heading text-[1.3rem] font-bold leading-tight">{today ? today.missions : '—'}</span>
+        <span className="text-xs text-navy-200">{today?.missions > 1 ? 'terminées' : 'terminée'}</span>
       </span>
-      <span className={cell}>
+      <span className={`${cell} border-l border-white/10 pl-3`}>
         <span className={label}>Solde</span>
-        <span className="tabular truncate text-title font-bold text-success-700">{solde != null ? amount(solde) : '—'}</span>
-        <span className="text-caption text-surface-500">FCFA</span>
+        <span className="tabular truncate font-heading text-[1.3rem] font-bold leading-tight text-accent-300">{solde != null ? amount(solde) : '—'}</span>
+        <span className="text-xs text-navy-200">{currencyLabel()}</span>
       </span>
     </Link>
   );
@@ -192,65 +212,86 @@ function ProposalsCallout({ count, expireLe }) {
   );
 }
 
-// Carte d'opportunite du carrousel "Autour de vous".
-function OpportunityCard({ to, kind, distance, title, footer }) {
-  const express = kind === 'express';
+// Course express du carrousel "Autour de vous" : prix fixe + Accepter.
+function ExpressOpportunity({ mission, accept, accepting, disabled }) {
+  const r = expressRoute(mission);
   return (
-    <Link to={to} className="card flex w-56 shrink-0 snap-start flex-col gap-2.5 p-3.5 transition hover:shadow-raised active:scale-[0.98]">
-      <span className="flex items-center justify-between gap-2">
-        <span className={`badge px-2 py-0.5 text-caption ${express ? 'bg-accent-50 text-accent-700' : 'bg-success-50 text-success-700'}`}>
-          {express ? <Zap size={12} aria-hidden="true" /> : <ShoppingBag size={12} aria-hidden="true" />}
-          {express ? 'Express' : 'Marketplace'}
+    <article className="card flex w-[13.5rem] shrink-0 snap-start flex-col gap-2.5 p-3.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="badge bg-accent-50 px-2 py-0.5 text-caption text-accent-700">
+          <Zap size={12} fill="currentColor" aria-hidden="true" /> Express
         </span>
-        {distance && <span className="tabular text-xs text-surface-500">{distance}</span>}
-      </span>
-      <span className="line-clamp-2 text-sm font-semibold leading-snug text-surface-900">{title}</span>
-      <span className="mt-auto text-xs text-surface-500">{footer}</span>
-    </Link>
+        {mission.distance_km != null && <span className="tabular text-xs text-surface-500">{formatDistance(Number(mission.distance_km))}</span>}
+      </div>
+      <Link to={missionDetailPath(mission.id)} className="line-clamp-2 text-sm font-semibold leading-snug text-navy-950">
+        {r.from.title} → {r.to.title}
+      </Link>
+      <div className="mt-auto flex items-center justify-between gap-2">
+        <Price value={missionPrice(mission)} className="text-base" currencyClass="text-[0.6875rem]" />
+        <button
+          type="button"
+          className="btn-accent btn-sm shadow-none"
+          onClick={() => accept(mission)}
+          disabled={disabled || accepting}
+          aria-busy={accepting}
+        >
+          <ButtonLabel loading={accepting} loadingLabel="…">Accepter</ButtonLabel>
+        </button>
+      </div>
+    </article>
   );
 }
 
-function Opportunities({ express, marketplace, offers, marketplaceOffers, offersCount }) {
+// Livraison marketplace express : prix fixe + Accepter (premier arrive).
+function MarketplaceOpportunity({ livraison, accept, accepting, disabled }) {
+  return (
+    <article className="card flex w-[13.5rem] shrink-0 snap-start flex-col gap-2.5 p-3.5">
+      <span className="flex items-center justify-between gap-2">
+        <span className="badge bg-teal-50 px-2 py-0.5 text-caption text-teal-700">
+          <ShoppingBag size={12} aria-hidden="true" /> Vente
+        </span>
+        {livraison.distance_km != null && <span className="tabular text-xs text-surface-500">{formatDistance(Number(livraison.distance_km))}</span>}
+      </span>
+      <span className="line-clamp-2 text-sm font-semibold leading-snug text-navy-950">
+        {placeLabel(marketplacePickup(livraison))} → {placeLabel(marketplaceDropoff(livraison))}
+      </span>
+      <div className="mt-auto flex items-center justify-between gap-2">
+        <Price value={livraison.montant_final} className="text-base" currencyClass="text-[0.6875rem]" />
+        <button
+          type="button"
+          className="btn-accent btn-sm shadow-none"
+          onClick={() => accept(livraison, { kind: 'marketplace' })}
+          disabled={disabled || accepting}
+          aria-busy={accepting}
+        >
+          <ButtonLabel loading={accepting} loadingLabel="…">Accepter</ButtonLabel>
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function Opportunities({ express, marketplace, busy }) {
   const total = express.length + marketplace.length;
-  const cards = [
-    ...express.slice(0, 4).map((m) => {
-      const r = expressRoute(m);
-      return (
-        <OpportunityCard
-          key={`e-${m.id}`}
-          kind="express"
-          to={`${ROUTES.MISSIONS}?onglet=disponibles&offre=${m.id}`}
-          distance={m.distance_km != null ? formatDistance(Number(m.distance_km)) : null}
-          title={`${r.from.title} → ${r.to.title}`}
-          footer={offers[m.id] != null ? `Votre offre : ${formatPrice(offers[m.id])}` : `${MISSION_TYPE_LABEL[m.type] || 'Mission'} · proposez votre tarif`}
-        />
-      );
-    }),
-    ...marketplace.slice(0, 2).map((l) => (
-      <OpportunityCard
-        key={`m-${l.id}`}
-        kind="marketplace"
-        to={`${ROUTES.MISSIONS}?onglet=marketplace`}
-        distance={l.distance_km != null ? formatDistance(Number(l.distance_km)) : null}
-        title={`${placeLabel(marketplacePickup(l))} → ${placeLabel(marketplaceDropoff(l))}`}
-        footer={marketplaceOffers[l.id] != null ? `Votre offre : ${formatPrice(marketplaceOffers[l.id])}` : 'Livraison d’une vente'}
-      />
-    )),
-  ];
+  const { accept, isAccepting } = useAcceptExpress();
 
   return (
     <section aria-labelledby="autour-titre">
       <div className="mb-2.5 flex items-baseline justify-between gap-3 px-1">
         <div>
-          <h2 id="autour-titre" className="text-base font-semibold text-surface-900">Autour de vous</h2>
-          {offersCount > 0 && <p className="text-xs text-surface-500">{plural(offersCount, 'offre')} en attente de réponse</p>}
+          <h2 id="autour-titre" className="text-base font-bold text-navy-950">Courses autour de vous</h2>
         </div>
-        <Link to={`${ROUTES.MISSIONS}?onglet=disponibles`} className="shrink-0 text-label font-semibold text-primary-700">
+        <Link to={`${ROUTES.MISSIONS}?onglet=disponibles`} className="shrink-0 text-sm font-bold text-primary-600">
           Tout voir ({total})
         </Link>
       </div>
-      <div className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1">
-        {cards}
+      <div className="no-scrollbar -mx-4 flex snap-x gap-2.5 overflow-x-auto px-4 pb-1">
+        {express.slice(0, 4).map((m) => (
+          <ExpressOpportunity key={`e-${m.id}`} mission={m} accept={accept} accepting={isAccepting(m.id)} disabled={busy} />
+        ))}
+        {marketplace.slice(0, 2).map((l) => (
+          <MarketplaceOpportunity key={`m-${l.id}`} livraison={l} accept={accept} accepting={isAccepting(l.id)} disabled={busy} />
+        ))}
       </div>
     </section>
   );
@@ -261,7 +302,7 @@ function WaitingCard() {
     <div className="card flex items-center gap-4 p-5">
       <span className="icon-tile h-12 w-12 bg-primary-50 text-primary-600"><Clock size={22} aria-hidden="true" /></span>
       <div className="min-w-0 flex-1">
-        <p className="font-semibold text-surface-900">Aucune mission pour l'instant</p>
+        <p className="font-bold text-navy-950">Aucune course pour l'instant</p>
         <p className="text-sm text-surface-500">Vous serez alerté dès qu'une course arrive dans votre zone.</p>
       </div>
     </div>
@@ -270,16 +311,15 @@ function WaitingCard() {
 
 export default function HomeDashboardPage() {
   const user = useSelector((state) => state.auth.user);
-  const {
-    proposals, active, available, offers,
-  } = useSelector((state) => state.missions);
+  const { proposals, active, available } = useSelector((state) => state.missions);
   const marketplace = useSelector((state) => state.marketplace);
   const balance = useSelector((state) => state.earnings.balance);
   const unread = useSelector(selectUnreadCount);
 
   const activeMission = active.items[0];
   const activeLivraison = useMemo(() => marketplace.mine.items.find(isActiveMarketplace), [marketplace.mine.items]);
-  const offersCount = Object.keys(offers).length + Object.keys(marketplace.offers).length;
+  // Seules les livraisons marketplace express s'acceptent ici (standard : agence).
+  const marketplaceExpress = useMemo(() => marketplace.available.items.filter((l) => l.mode !== 'standard'), [marketplace.available.items]);
 
   const pending = useMemo(() => [
     ...proposals.items.filter((m) => !isProposalExpired(m)),
@@ -295,34 +335,35 @@ export default function HomeDashboardPage() {
   const today = useTodayStats(balance.value);
   const disponible = Boolean(user?.disponible);
   const hasActive = Boolean(activeMission || activeLivraison);
-  const firstName = user?.prenoms?.split(' ')[0] || user?.nom || 'Livreur';
-  const opportunityCount = available.items.length + marketplace.available.items.length;
+  const opportunityCount = available.items.length + marketplaceExpress.length;
 
   return (
     <div className="safe-top">
-      {/* En-tete : identite, activite et etat de service */}
-      <header className="border-b border-surface-200/70 bg-white">
-        <div className="page-container space-y-4 pb-4 pt-5">
+      {/* En-tete navy : identite, etat de service et chiffres du jour */}
+      <header className="relative rounded-b-3xl bg-navy-900 text-white">
+        <div className="page-container space-y-[1.125rem] pb-6 pt-5">
           <div className="flex items-center justify-between gap-3">
             <Link to={ROUTES.PROFILE} className="flex min-w-0 items-center gap-3">
               {user?.livreur?.photo_profil_url ? (
-                <img src={user.livreur.photo_profil_url} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
+                <img src={user.livreur.photo_profil_url} alt="" className="h-[46px] w-[46px] shrink-0 rounded-[0.875rem] object-cover" />
               ) : (
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-600 text-sm font-bold text-white">{initials(user)}</span>
+                <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[0.875rem] bg-white">
+                  <img src={logoMark} alt="" className="h-[34px] w-auto" />
+                </span>
               )}
               <div className="min-w-0">
-                <p className="flex items-center gap-2 text-xs text-surface-500">{greeting()}, <RealtimeStatus /></p>
-                <p className="truncate font-heading text-lg font-semibold text-surface-900">{firstName}</p>
+                <p className="flex items-center gap-2 text-[0.8125rem] text-navy-200">{greeting()}, <RealtimeStatus /></p>
+                <p className="truncate font-heading text-[1.2rem] font-bold tracking-tight">{fullName(user)}</p>
               </div>
             </Link>
             <Link
               to={ROUTES.NOTIFICATIONS}
-              className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-100 text-surface-700"
+              className="relative flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[0.875rem] bg-white/10 text-white"
               aria-label={unread ? `Activité, ${unread} non lue(s)` : 'Activité'}
             >
-              <Bell size={20} aria-hidden="true" />
+              <Bell size={21} aria-hidden="true" />
               {unread > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-white bg-accent-700 px-1 text-micro font-bold leading-none text-white">
+                <span className="absolute right-1.5 top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-navy-900 bg-accent-400 px-1 text-micro font-extrabold leading-none text-accent-900">
                   {unread > 9 ? '9+' : unread}
                 </span>
               )}
@@ -331,17 +372,20 @@ export default function HomeDashboardPage() {
 
           {/* Hors ligne sans mission : le grand bouton du corps de page suffit. */}
           {(disponible || hasActive) && <AvailabilitySwitch variant="banner" />}
+
+          <TodayStrip today={today} solde={solde} />
         </div>
+
+        {/* Signature "plume" : les 4 couleurs du logo. */}
+        <div className="plume-band absolute inset-x-7 -bottom-[3px] h-1.5 rounded-full" aria-hidden="true" />
       </header>
 
-      <div className="page-container space-y-4 pb-6 pt-4">
+      <div className="page-container space-y-[1.125rem] pb-6 pt-6">
         <AbonnementBanner />
 
         {pending.length > 0 && <ProposalsCallout count={pending.length} expireLe={nextExpiry} />}
 
         {!disponible && !hasActive && <OfflineHero count={available.items.length} />}
-
-        <TodayStrip today={today} solde={solde} />
 
         {/* Mission en cours : l'action du moment passe avant tout le reste. */}
         {activeMission && <ExpeditionHero mission={activeMission} />}
@@ -352,10 +396,8 @@ export default function HomeDashboardPage() {
         {disponible && (opportunityCount > 0 ? (
           <Opportunities
             express={available.items}
-            marketplace={marketplace.available.items}
-            offers={offers}
-            marketplaceOffers={marketplace.offers}
-            offersCount={offersCount}
+            marketplace={marketplaceExpress}
+            busy={active.items.length > 0}
           />
         ) : !hasActive && <WaitingCard />)}
       </div>

@@ -3,8 +3,10 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
-  SearchX, CircleCheckBig, Ban, Package, Banknote, KeyRound, Zap, MessageSquareText, CircleX,
+  SearchX, CircleCheckBig, Ban, Package, Banknote, KeyRound, Zap, MessageSquareText, CircleX, Wallet,
 } from 'lucide-react';
+import ButtonLabel from '../../components/common/ButtonLabel';
+import useAcceptExpress from '../../hooks/useAcceptExpress';
 import TopBar from '../../components/common/TopBar';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
@@ -28,7 +30,7 @@ import {
 import { fetchBalance } from '../../store/slices/earningsSlice';
 import {
   expeditionPhase, expeditionAction, expeditionStepIndex, EXPEDITION_STEPS,
-  MISSION_TYPE_LABEL, MISSION_MODE_LABEL, missionInstructions,
+  MISSION_TYPE_LABEL, MISSION_MODE_LABEL, missionInstructions, missionPrice, missionPayerLabel,
 } from '../../utils/missionFlow';
 import { formatPrice, formatDateTime, formatDuration } from '../../utils/format';
 import { isValidPoint } from '../../services/routingService';
@@ -96,6 +98,7 @@ export default function MissionDetailPage() {
   const [actionError, setActionError] = useState(null);
   const [proposalError, setProposalError] = useState(null);
   const [completed, setCompleted] = useState(null); // { duree } apres cloture
+  const { accept: acceptExpress, isAccepting } = useAcceptExpress();
 
   // Pas d'endpoint de detail : la mission est retrouvee dans les listes chargees.
   useEffect(() => {
@@ -223,10 +226,10 @@ export default function MissionDetailPage() {
 
       <div className={`page-container relative z-10 flex-1 space-y-4 pb-4 ${hasMap ? '-mt-6' : 'pt-4'}`}>
         {/* Resume : etat, montant, progression et trajet d'un coup d'oeil */}
-        <div className="card p-4 shadow-raised">
+        <div className="card-raised p-4">
           <div className="flex items-center justify-between gap-3">
             <ExpeditionStatusBadge phase={phase} />
-            <p className="tabular font-heading text-xl font-bold text-surface-900">{formatPrice(mission.montant_final)}</p>
+            <p className="tabular font-heading text-xl font-bold text-surface-900">{formatPrice(missionPrice(mission))}</p>
           </div>
           {!['offer', 'cancelled', 'proposal', 'refused'].includes(phase) && (
             <div className="mt-4">
@@ -237,14 +240,15 @@ export default function MissionDetailPage() {
             <RouteLine from={route.from} to={route.to} active={nextStop} />
           </div>
           <div className="divider mt-4 divide-y divide-surface-100">
-            <InfoRow icon={Banknote} label="Paiement" value={mission.statut_paiement === 'paye' ? 'Payé (espèces)' : 'Espèces à la clôture'} />
+            <InfoRow icon={Banknote} label="Payé par" value={missionPayerLabel(mission)} />
+            <InfoRow icon={Wallet} label="Votre solde" value={mission.statut_paiement === 'paye' ? 'Crédité' : 'Crédité à la clôture'} />
             {mission.assignee_le && <InfoRow icon={Package} label="Assignée" value={formatDateTime(mission.assignee_le)} />}
           </div>
         </div>
 
         {phase === 'done' && (
           <Callout tone="success" icon={CircleCheckBig} title="Mission terminée">
-            {formatPrice(mission.montant_final)} crédité sur votre solde livreur.
+            {formatPrice(missionPrice(mission))} crédité sur votre solde livreur.
           </Callout>
         )}
         {phase === 'cancelled' && <Callout tone="danger" icon={Ban} title="Cette mission a été annulée." />}
@@ -266,9 +270,31 @@ export default function MissionDetailPage() {
           />
         )}
         {phase === 'offer' && (
-          <Callout to={`${ROUTES.MISSIONS}?onglet=disponibles`} tone="info" icon={Zap} title="Mission express ouverte aux offres">
-            Proposez votre tarif depuis l'onglet Express.
-          </Callout>
+          <section className="card space-y-3 border-accent-200 p-4" aria-label="Course express disponible">
+            <div className="flex items-start gap-3">
+              <span className="icon-tile h-10 w-10 bg-accent-50 text-accent-600"><Zap size={20} aria-hidden="true" /></span>
+              <div className="min-w-0 text-sm">
+                <p className="font-semibold text-surface-900">Course express à prix fixe</p>
+                <p className="mt-0.5 leading-relaxed text-surface-600">Le premier livreur qui accepte remporte la course.</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn-accent btn-lg w-full"
+              onClick={async () => {
+                const res = await acceptExpress(mission, { redirect: false });
+                if (res === 'taken') navigate(`${ROUTES.MISSIONS}?onglet=disponibles`, { replace: true });
+              }}
+              disabled={!disponible || busy || active.items.length > 0}
+              aria-busy={isAccepting(mission.id)}
+            >
+              <ButtonLabel loading={isAccepting(mission.id)} loadingLabel="Acceptation…">
+                Accepter · {formatPrice(missionPrice(mission))}
+              </ButtonLabel>
+            </button>
+            {!disponible && <p className="text-center text-xs text-surface-500">Passez disponible pour accepter une course.</p>}
+            {disponible && active.items.length > 0 && <p className="text-center text-xs text-surface-500">Terminez votre mission en cours avant d'en accepter une autre.</p>}
+          </section>
         )}
 
         <section className="space-y-3">
@@ -279,18 +305,20 @@ export default function MissionDetailPage() {
 
         {/* Consignes terrain regroupees : instructions du client et code de remise. */}
         {(showInstructions || showDeliveryCode) && (
-          <section className="card divide-y divide-surface-100" aria-label="Consignes">
+          <section className="space-y-3" aria-label="Consignes">
             {showInstructions && (
-              <div className="flex items-start gap-3 p-4">
-                <MessageSquareText size={18} className="mt-0.5 shrink-0 text-warning-700" aria-hidden="true" />
+              <div className="flex items-start gap-3 rounded-2xl bg-accent-50 p-3.5 ring-1 ring-accent-200">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-400 text-accent-900">
+                  <MessageSquareText size={18} aria-hidden="true" />
+                </span>
                 <div className="min-w-0 text-sm">
-                  <p className="eyebrow">{isPickup ? "Instructions de l'expéditeur" : 'Instructions du destinataire'}</p>
-                  <p className="mt-0.5 leading-relaxed text-surface-800">{instructions}</p>
+                  <p className="text-caption font-extrabold uppercase tracking-[0.06em] text-accent-700">{isPickup ? "Consigne de l'expéditeur" : 'Consigne du destinataire'}</p>
+                  <p className="mt-0.5 leading-relaxed text-accent-900">{instructions}</p>
                 </div>
               </div>
             )}
             {showDeliveryCode && (
-              <div className="flex items-start gap-3 p-4">
+              <div className="card flex items-start gap-3 p-4">
                 <KeyRound size={18} className="mt-0.5 shrink-0 text-primary-600" aria-hidden="true" />
                 <p className="text-sm leading-relaxed text-surface-700">
                   À la remise, demandez au destinataire son <strong className="text-surface-900">code à 4 chiffres</strong>. Sans ce code, la livraison ne peut pas être clôturée.
@@ -363,7 +391,7 @@ export default function MissionDetailPage() {
             ? "Le colis est déposé à l'agence. Votre solde a été crédité."
             : 'Le colis est remis au destinataire. Votre solde a été crédité.'}
           stats={[
-            { label: 'Gain crédité', value: formatPrice(mission.montant_final) },
+            { label: 'Gain crédité', value: formatPrice(missionPrice(mission)) },
             ...(completed.duree ? [{ label: 'Durée', value: completed.duree }] : []),
           ]}
           primary={{ label: 'Voir mes gains', to: ROUTES.EARNINGS }}

@@ -7,10 +7,10 @@ import {
   getConnectionState, subscribeConnectionState, isRealtimeConfigured,
 } from '../services/echo';
 import {
-  fetchActiveMissions, fetchAvailableMissions, fetchMissionProposals, removeAvailable, clearOffer, setIncoming,
+  fetchActiveMissions, fetchAvailableMissions, fetchMissionProposals, removeAvailable, setIncoming, clearIncoming,
 } from '../store/slices/missionsSlice';
 import {
-  fetchMarketplaceAvailable, fetchMarketplaceMine, clearMarketplaceOffer,
+  fetchMarketplaceAvailable, fetchMarketplaceMine, removeMarketplaceAvailable,
   upsertMarketplaceLivraison, removeMarketplaceLivraison,
 } from '../store/slices/marketplaceSlice';
 import { fetchAbonnementStatus } from '../store/slices/abonnementSlice';
@@ -168,7 +168,7 @@ export function useRealtimeWithNotifications(options = {}) {
         dispatch(pushActivity({
           kind: 'available',
           titre: meta.count > 1 ? `${meta.count} nouvelles missions express` : 'Nouvelle mission express disponible',
-          message: 'Proposez votre tarif avant les autres livreurs.',
+          message: 'Prix fixe : acceptez-la avant les autres livreurs.',
           link: `${ROUTES.MISSIONS}?onglet=disponibles`,
         }));
         once(`mission.available.${id}`, async () => {
@@ -185,17 +185,20 @@ export function useRealtimeWithNotifications(options = {}) {
           const city = loadPreferredCity();
           const inMyCity = !city || sameCity(missionCity(mission), city);
           if (free && mission && inMyCity) dispatch(setIncoming(id));
-          else toast.info('Nouvelle mission express disponible', { description: 'Proposez votre tarif.' });
+          else toast.info('Nouvelle mission express disponible', { description: 'Premier arrivé, premier servi.' });
         });
         break;
       }
 
-      // Proposition groupage acceptee (par moi) ou offre express retenue.
+      // Proposition groupage ou course express acceptee (par moi), ou
+      // assignation directe.
       case 'mission.assigned': {
-        const wasProposal = id != null && store.getState().missions.proposals.items.some((m) => String(m.id) === String(id));
+        const { proposals, active } = store.getState().missions;
+        const known = id != null && [...proposals.items, ...active.items].some((m) => String(m.id) === String(id));
+        if (id != null) dispatch(removeAvailable(id));
         dispatch(fetchActiveMissions());
         dispatch(fetchMissionProposals());
-        if (!wasProposal) {
+        if (!known) {
           dispatch(pushActivity({
             kind: 'assigned',
             titre: 'Nouvelle mission assignée',
@@ -208,34 +211,21 @@ export function useRealtimeWithNotifications(options = {}) {
         break;
       }
 
-      // Envoye a TOUS les offrants (gagnant + refuses) : on recharge ses missions
-      // actives pour savoir si son offre a ete retenue.
+      // Course express plus ouverte (prise par un livreur — premier arrive,
+      // premier servi). Plus de notion d'offre gagnante/perdante : on la retire
+      // de la liste, et on previent seulement si elle etait affichee en grand.
       case 'mission.closed':
         once(`mission.closed.${id}`, async () => {
-          const hadOffer = id != null && store.getState().missions.offers[id] != null;
-          if (id != null) {
+          const { incoming, active } = store.getState().missions;
+          const mine = id != null && active.items.some((m) => String(m.id) === String(id));
+          if (id != null && !mine) {
             dispatch(removeAvailable(id));
-            dispatch(clearOffer(id));
+            if (String(incoming) === String(id)) {
+              dispatch(clearIncoming());
+              toast.message('Course déjà prise', { description: 'Un autre livreur a été plus rapide.' });
+            }
           }
-          const res = await dispatch(fetchActiveMissions());
           dispatch(fetchAvailableMissions());
-          const won = id != null && Array.isArray(res.payload) && res.payload.some((m) => String(m.id) === String(id));
-          if (won) {
-            dispatch(pushActivity({
-              kind: 'accepted',
-              titre: 'Offre acceptée',
-              message: 'Le client a retenu votre offre. La mission est à vous.',
-              link: missionDetailPath(id),
-            }));
-            toast.success('Votre offre a été acceptée !');
-          } else if (hadOffer) {
-            dispatch(pushActivity({
-              kind: 'refused',
-              titre: 'Offre non retenue',
-              message: 'Le client a choisi une autre offre pour cette mission.',
-            }));
-            toast.message('Offre non retenue');
-          }
         });
         break;
 
@@ -244,7 +234,7 @@ export function useRealtimeWithNotifications(options = {}) {
         dispatch(pushActivity({
           kind: 'available',
           titre: 'Nouvelle livraison marketplace',
-          message: 'Une vente attend un livreur sur le réseau.',
+          message: 'Livraison express à prix fixe : premier arrivé, premier servi.',
           link: `${ROUTES.MISSIONS}?onglet=marketplace`,
           targetId: id,
         }));
@@ -265,29 +255,14 @@ export function useRealtimeWithNotifications(options = {}) {
         }));
         break;
 
+      // Livraison express plus ouverte (prise par un livreur, premier arrive) :
+      // on la retire de la liste ; si c'est la mienne, on resynchronise.
       case 'marketplace.closed':
         once(`marketplace.closed.${id}`, async () => {
-          const hadOffer = id != null && store.getState().marketplace.offers[id] != null;
-          if (id != null) dispatch(clearMarketplaceOffer(id));
-          const res = await dispatch(fetchMarketplaceMine());
+          const mine = id != null && store.getState().marketplace.mine.items.some((l) => String(l.id) === String(id));
+          if (id != null && !mine) dispatch(removeMarketplaceAvailable(id));
           dispatch(fetchMarketplaceAvailable());
-          const won = id != null && Array.isArray(res.payload) && res.payload.some((l) => String(l.id) === String(id));
-          if (won) {
-            dispatch(fetchAbonnementStatus());
-            dispatch(pushActivity({
-              kind: 'accepted',
-              titre: 'Offre marketplace acceptée',
-              message: 'Le vendeur a retenu votre offre.',
-              link: marketplaceDetailPath(id),
-            }));
-            toast.success('Votre offre marketplace a été acceptée !');
-          } else if (hadOffer) {
-            dispatch(pushActivity({
-              kind: 'refused',
-              titre: 'Offre marketplace non retenue',
-              message: 'Le vendeur a choisi une autre offre.',
-            }));
-          }
+          if (mine) dispatch(fetchMarketplaceMine());
         });
         break;
 

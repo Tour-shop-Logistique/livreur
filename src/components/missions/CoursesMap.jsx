@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import {
-  MapContainer, TileLayer, Marker, Popup, Polyline, useMap,
+  MapContainer, TileLayer, AttributionControl, Marker, Popup, Polyline, useMap,
 } from 'react-leaflet';
 import { ChevronDown, Map as MapIcon } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
@@ -13,6 +13,7 @@ import { expeditionRoute } from './missionRoute';
 import { marketplacePickup, marketplaceDropoff, MISSION_TYPE_LABEL } from '../../utils/missionFlow';
 import { missionDetailPath, marketplaceDetailPath } from '../../routes';
 import { pinIcon, meIcon } from './mapPins';
+import { TILE_URL, TILE_ATTRIBUTION } from '../../utils/mapTiles';
 
 // Vue d'ensemble des courses en cours : pour chaque course, son point de
 // recuperation et son point de remise (numerotes 1, 2, 3…), l'itineraire routier
@@ -112,7 +113,8 @@ export default function CoursesMap({ missions = [], livraisons = [] }) {
         <>
           <div className="h-[55dvh] w-full">
             <MapContainer center={points[0]} zoom={13} zoomControl={false} attributionControl={false} className="h-full w-full">
-              <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
+              <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} maxZoom={19} />
+              <AttributionControl position="bottomleft" prefix={false} />
               <FitAll points={points} />
               {courses.map((c, i) => (
                 <CourseRoute key={c.id} course={c} color={COURSE_COLORS[i % COURSE_COLORS.length]} vehicle={vehicle} onDistance={onDistance} />

@@ -1,7 +1,8 @@
 // Tons visuels des statuts : presentation uniquement.
 const TONES = {
   info: { dot: 'bg-primary-500', className: 'bg-primary-50 text-primary-700' },
-  active: { dot: 'bg-accent-500 animate-pulse-dot', className: 'bg-accent-50 text-accent-700' },
+  active: { dot: 'bg-teal-500 animate-pulse-dot', className: 'bg-teal-50 text-teal-700' },
+  lime: { dot: 'bg-accent-400', className: 'bg-accent-50 text-accent-700' },
   waiting: { dot: 'bg-warning-500', className: 'bg-warning-50 text-warning-800' },
   success: { dot: 'bg-success-500', className: 'bg-success-50 text-success-700' },
   danger: { dot: 'bg-danger-500', className: 'bg-danger-50 text-danger-700' },
@@ -10,9 +11,9 @@ const TONES = {
 
 // Statut d'une mission d'expedition, affine par la phase du workflow.
 const EXPEDITION_PHASE = {
-  proposal: { label: 'À accepter', tone: 'active' },
+  proposal: { label: 'À accepter', tone: 'info' },
   refused: { label: 'Refusée', tone: 'neutral' },
-  offer: { label: 'Ouverte aux offres', tone: 'info' },
+  offer: { label: 'Disponible', tone: 'lime' },
   start: { label: 'À démarrer', tone: 'waiting' },
   pickup: { label: 'Enlèvement en cours', tone: 'active' },
   deposit: { label: "Vers l'agence", tone: 'active' },
@@ -22,7 +23,7 @@ const EXPEDITION_PHASE = {
 };
 
 const MARKETPLACE = {
-  proposee: { label: 'À accepter', tone: 'active' },
+  proposee: { label: 'À accepter', tone: 'info' },
   refusee: { label: 'Refusée', tone: 'neutral' },
   expiree: { label: 'Expirée', tone: 'neutral' },
   en_attente: { label: 'Ouverte aux offres', tone: 'info' },

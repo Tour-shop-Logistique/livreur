@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import {
-  MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap,
+  MapContainer, TileLayer, AttributionControl, Marker, Popup, Polyline, Circle, useMap,
 } from 'react-leaflet';
 import {
   Crosshair, LocateFixed, LocateOff, Maximize2, Minimize2, Navigation,
@@ -12,6 +12,7 @@ import useLivePosition from '../../hooks/useLivePosition';
 import { isValidPoint, formatDistance, formatEta } from '../../services/routingService';
 import { mapsLink } from '../../utils/missionFlow';
 import { pinIcon, meIcon } from './mapPins';
+import { TILE_URL, TILE_ATTRIBUTION } from '../../utils/mapTiles';
 
 // Carte d'une course : point de recuperation (A) et de remise (B), itineraire
 // routier entre les deux, position du livreur en direct et distance / temps
@@ -118,7 +119,9 @@ export default function MissionMap({ stops = [], nextStop = null, variant = 'car
           attributionControl={false}
           className="h-full w-full"
         >
-          <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
+          <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} maxZoom={19} />
+          {/* En haut a gauche : le bas de la carte est recouvert par la fiche de mission. */}
+          <AttributionControl position="topleft" prefix={false} />
           <MapController points={framePoints} tick={tick} expanded={expanded} />
 
           {plan && (

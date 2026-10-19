@@ -14,8 +14,9 @@ const proofFields = ({ photo, signature, lat, lng } = {}) => ({
   longitude: lng,
 });
 
-// GET /marketplace/livreur/livraisons-disponibles — mode reseau, statut en_attente,
-// filtrees par ville du profil. `ville` remplace la ville du profil ; `lat`/`lng`
+// GET /marketplace/livreur/livraisons-disponibles — modes `express` (a accepter,
+// prix `montant_final` impose) et `standard` (assigne par le backoffice), statut
+// en_attente, filtrees par ville du profil. `ville` remplace la ville du profil ; `lat`/`lng`
 // ajoutent `distance_km` et filtrent sur `zone_de_livraison_km` (§7.1).
 const fetchAvailable = async ({ ville, lat, lng } = {}) => {
   const params = {};
@@ -40,19 +41,18 @@ const fetchOne = async (id) => {
   return data;
 };
 
-// POST .../{id}/proposer — idempotent.
-const proposeOffer = async (id, montant) => {
-  const { data } = await api.post(`${BASE}/${id}/proposer`, { montant_propose: montant });
+// POST .../{id}/accepter-express — livraison EXPRESS a prix impose, premier
+// arrive premier servi (MARKETPLACE_LIVRAISON_3_MODES.md). Plus d'offre de prix :
+// les anciennes routes `proposer` / `offre` repondent 410.
+// 422 : "n'est pas en mode express", livreur indisponible, ou "déjà été prise
+// par un autre livreur" (cas normal).
+const acceptExpress = async (id) => {
+  const { data } = await api.post(`${BASE}/${id}/accepter-express`);
   return data;
 };
 
-// DELETE .../{id}/offre
-const withdrawOffer = async (id) => {
-  const { data } = await api.delete(`${BASE}/${id}/offre`);
-  return data;
-};
-
-// POST .../{id}/accepter — affectation directe `proposee` -> `assignee` (§7.4).
+// POST .../{id}/accepter — livreur du magasin designe par le vendeur :
+// `proposee` -> `assignee` (§7.3).
 // 422 si expiree ou livreur indisponible, 404 si deja traitee.
 const accept = async (id) => {
   const { data } = await api.post(`${BASE}/${id}/accepter`);
@@ -92,8 +92,7 @@ const marketplaceService = {
   fetchAvailable,
   fetchMine,
   fetchOne,
-  proposeOffer,
-  withdrawOffer,
+  acceptExpress,
   accept,
   refuse,
   start,

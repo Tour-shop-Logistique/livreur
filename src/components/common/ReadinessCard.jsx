@@ -94,11 +94,11 @@ export default function ReadinessCard() {
   return (
     <section className="card p-4" aria-labelledby="readiness-title">
       <div className="flex items-center justify-between gap-3">
-        <h2 id="readiness-title" className="font-semibold text-surface-900">Prêt à livrer</h2>
+        <h2 id="readiness-title" className="font-heading text-base font-bold text-navy-950">Prêt à livrer</h2>
         <span className="tabular text-xs font-semibold text-surface-500">{doneCount}/{items.length}</span>
       </div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-100" aria-hidden="true">
-        <div className="h-full rounded-full bg-primary-600 transition-all" style={{ width: `${(doneCount / items.length) * 100}%` }} />
+        <div className="h-full rounded-full bg-teal-500 transition-all" style={{ width: `${(doneCount / items.length) * 100}%` }} />
       </div>
       <ul className="mt-2 divide-y divide-surface-100">
         {items.map(({ key, ...item }) => <Row key={key} {...item} />)}

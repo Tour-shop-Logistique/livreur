@@ -4,28 +4,18 @@ import { apiErrorMessage } from '../../services/api';
 import { geoParams } from './missionsSlice';
 
 // Livraisons Marketplace (MARKETPLACE_ET_ABONNEMENT_API.md §7) :
-//  - available : livraisons reseau en attente d'offres
-//  - mine      : livraisons qui me sont proposees (affectation directe, 15 min)
+//  - available : livraisons en attente sur le reseau : `express` (prix impose,
+//                premier arrive premier servi) et `standard` (assignee par le
+//                backoffice, non acceptable ici) — MARKETPLACE_LIVRAISON_3_MODES.md
+//  - mine      : livraisons qui me sont proposees (livreur du magasin, 15 min)
 //                ou assignees (tous statuts), avec adresses/contacts complets
-//  - offers    : mes offres { [livraisonId]: montant }, gardees localement.
-// Un 403 ABONNEMENT_BLOQUE est remonte via `blocked` (cf. api.js + abonnementSlice).
+// Plus d'offres de prix. Un 403 ABONNEMENT_BLOQUE est remonte via `blocked`.
 
-const OFFERS_KEY = 'livreur_offres_marketplace';
+// Anciennes offres gardees en local (modele par offres, supprime).
+try { localStorage.removeItem('livreur_offres_marketplace'); } catch { /* non bloquant */ }
 
-const loadOffers = () => {
-  try {
-    return JSON.parse(localStorage.getItem(OFFERS_KEY)) || {};
-  } catch {
-    return {};
-  }
-};
-const saveOffers = (offers) => {
-  try {
-    localStorage.setItem(OFFERS_KEY, JSON.stringify(offers));
-  } catch {
-    // non bloquant
-  }
-};
+// 422 quand un autre livreur a ete plus rapide : cas normal, pas une erreur.
+const ALREADY_TAKEN = /d[ée]j[aà] [ée]t[ée] prise/i;
 
 const isExpired = (expireLe) => {
   const t = Date.parse(expireLe ?? '');
@@ -37,7 +27,6 @@ const listState = () => ({ items: [], status: 'idle', error: null, blocked: fals
 const initialState = {
   available: listState(),
   mine: listState(),
-  offers: loadOffers(),
   pendingAction: null,
 };
 
@@ -71,27 +60,17 @@ export const fetchMarketplaceMine = createAsyncThunk(
   }
 );
 
-export const proposeMarketplaceOffer = createAsyncThunk(
-  'marketplace/proposeOffer',
-  async ({ id, montant }, { rejectWithValue }) => {
-    try {
-      await marketplaceService.proposeOffer(id, montant);
-      return { id, montant };
-    } catch (err) {
-      return rejectWithValue(apiErrorMessage(err, "Impossible d'envoyer votre offre."));
-    }
-  }
-);
-
-export const withdrawMarketplaceOffer = createAsyncThunk(
-  'marketplace/withdrawOffer',
+// Livraison express : POST .../accepter-express, prix impose. Rejet :
+// { message, taken } — `taken` = un autre livreur l'a prise avant.
+export const acceptMarketplaceExpress = createAsyncThunk(
+  'marketplace/acceptExpress',
   async (id, { rejectWithValue }) => {
     try {
-      await marketplaceService.withdrawOffer(id);
-      return id;
+      const data = await marketplaceService.acceptExpress(id);
+      return { id, livraison: data?.livraison };
     } catch (err) {
-      if (err.response?.status === 404) return id;
-      return rejectWithValue(apiErrorMessage(err, 'Impossible de retirer votre offre.'));
+      const message = apiErrorMessage(err, "Impossible d'accepter cette livraison.");
+      return rejectWithValue({ message, taken: ALREADY_TAKEN.test(message) });
     }
   }
 );
@@ -110,7 +89,7 @@ export const fetchMarketplaceDetail = createAsyncThunk(
   }
 );
 
-// Affectation directe par le vendeur : accepter (§7.4).
+// Livreur du magasin designe par le vendeur : accepter (§7.3).
 export const acceptMarketplaceProposal = createAsyncThunk(
   'marketplace/accept',
   async (id, { rejectWithValue }) => {
@@ -180,9 +159,9 @@ const marketplaceSlice = createSlice({
   name: 'marketplace',
   initialState,
   reducers: {
-    clearMarketplaceOffer(state, action) {
-      delete state.offers[action.payload];
-      saveOffers(state.offers);
+    // Livraison express plus ouverte (prise par un livreur).
+    removeMarketplaceAvailable(state, action) {
+      state.available.items = state.available.items.filter((l) => String(l.id) !== String(action.payload));
     },
     // Livraison recue en temps reel (ex. `proposee`) avant le rechargement de la liste.
     upsertMarketplaceLivraison(state, action) {
@@ -206,9 +185,6 @@ const marketplaceSlice = createSlice({
       .addCase(fetchMarketplaceAvailable.pending, pending('available'))
       .addCase(fetchMarketplaceAvailable.fulfilled, (state, action) => {
         state.available = { items: action.payload, status: 'idle', error: null, blocked: false, loaded: true };
-        const openIds = new Set(action.payload.map((l) => String(l.id)));
-        Object.keys(state.offers).forEach((id) => { if (!openIds.has(id)) delete state.offers[id]; });
-        saveOffers(state.offers);
       })
       .addCase(fetchMarketplaceAvailable.rejected, rejected('available'))
 
@@ -224,13 +200,19 @@ const marketplaceSlice = createSlice({
       })
       .addCase(fetchMarketplaceMine.rejected, rejected('mine'))
 
-      .addCase(proposeMarketplaceOffer.fulfilled, (state, action) => {
-        state.offers[action.payload.id] = action.payload.montant;
-        saveOffers(state.offers);
+      .addCase(acceptMarketplaceExpress.pending, (state, action) => { state.pendingAction = action.meta.arg; })
+      .addCase(acceptMarketplaceExpress.rejected, (state, action) => {
+        state.pendingAction = null;
+        if (action.payload?.taken) {
+          state.available.items = state.available.items.filter((l) => String(l.id) !== String(action.meta.arg));
+        }
       })
-      .addCase(withdrawMarketplaceOffer.fulfilled, (state, action) => {
-        delete state.offers[action.payload];
-        saveOffers(state.offers);
+      .addCase(acceptMarketplaceExpress.fulfilled, (state, action) => {
+        state.pendingAction = null;
+        const { id, livraison } = action.payload;
+        const open = state.available.items.find((l) => String(l.id) === String(id));
+        state.available.items = state.available.items.filter((l) => String(l.id) !== String(id));
+        upsertMine(state, { ...(open || {}), ...(livraison || {}), id: open?.id ?? id, statut: 'assignee' });
       })
 
       .addCase(fetchMarketplaceDetail.fulfilled, (state, action) => {
@@ -273,7 +255,7 @@ const marketplaceSlice = createSlice({
   },
 });
 
-export const { clearMarketplaceOffer, upsertMarketplaceLivraison, removeMarketplaceLivraison } = marketplaceSlice.actions;
+export const { removeMarketplaceAvailable, upsertMarketplaceLivraison, removeMarketplaceLivraison } = marketplaceSlice.actions;
 
 export const selectMarketplaceById = (state, id) => {
   const { available, mine } = state.marketplace;

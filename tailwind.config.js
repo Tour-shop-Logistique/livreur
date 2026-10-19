@@ -13,7 +13,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: ['Figtree', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
         heading: ['Poppins', 'Inter', 'system-ui', 'sans-serif'],
       },
       // Tailles intermediaires de l'interface mobile (en plus de xs/sm/base/lg).
@@ -40,18 +40,48 @@ export default {
           900: '#143c64',
           950: '#0c2540',
         },
-        // Orange "livraison" : reserve aux actions terrain (demarrer, livrer).
+        // Design "Plume" : les 4 couleurs de la plume du logo TourShop.
+        // Lime "Shop" : action et argent (Accepter, En ligne, gains). Toujours
+        // avec un texte fonce (accent-900) sur les aplats 300/400 ; 600/700
+        // sont assez sombres pour du texte sur fond clair (>= 5,9:1).
         accent: {
-          50: '#fff7ed',
-          100: '#ffedd5',
-          200: '#fed7aa',
-          300: '#fdba74',
-          400: '#fb923c',
-          500: '#f97316',
-          600: '#ea580c',
-          700: '#c2410c',
-          800: '#9a3412',
-          900: '#7c2d12',
+          50: '#fafbe7',
+          100: '#f2f6c4',
+          200: '#e5ee8f',
+          300: '#d2e052',
+          400: '#bdce2e',
+          500: '#a3b01e',
+          600: '#636b16',
+          700: '#505619',
+          800: '#45491b',
+          900: '#24270a',
+        },
+        // Navy de la plume : structure (en-tetes, carte solde, onglet actif).
+        navy: {
+          50: '#eeeef6',
+          100: '#dfdeee',
+          200: '#c1bfdf',
+          300: '#9e9bcb',
+          400: '#7a75b3',
+          500: '#5c5599',
+          600: '#453d80',
+          700: '#363065',
+          800: '#2b2650',
+          900: '#241f41',
+          950: '#16132a',
+        },
+        // Cyan de la plume : "en mouvement" (mission en cours, etapes, trace).
+        teal: {
+          50: '#edfbfc',
+          100: '#d3f5f8',
+          200: '#a9eaf0',
+          300: '#71d9e3',
+          400: '#34bfcc',
+          500: '#159faf',
+          600: '#10808d',
+          700: '#126672',
+          800: '#15525c',
+          900: '#16444c',
         },
         // Statuts metier : success = terminee, warning = en cours / a surveiller,
         // danger = probleme / annulee / bloque.
@@ -83,7 +113,7 @@ export default {
           800: '#991b1b',
         },
         surface: {
-          50: '#f7f9fc',
+          50: '#f4f6fb',
           100: '#eff3f8',
           200: '#e2e8f0',
           300: '#cbd5e1',
@@ -96,20 +126,24 @@ export default {
         },
       },
       spacing: {
-        'bottom-nav': '4.5rem',
+        // Barre flottante : 52 px d'onglet + 2 x 8 px de padding + 12 px de marge.
+        'bottom-nav': '5rem',
         'safe-top': 'env(safe-area-inset-top)',
         'safe-bottom': 'env(safe-area-inset-bottom)',
       },
       borderRadius: {
-        'xl': '0.875rem',
-        '2xl': '1.25rem',
+        'xl': '1rem',
+        '2xl': '1.375rem',
+        '3xl': '1.75rem',
       },
+      // Ombres douces teintees navy.
       boxShadow: {
-        'nav': '0 -1px 0 rgba(15, 23, 42, 0.06), 0 -8px 24px rgba(15, 23, 42, 0.04)',
-        'card': '0 1px 2px rgba(15, 23, 42, 0.04), 0 0 0 1px rgba(15, 23, 42, 0.05)',
-        'raised': '0 8px 24px -8px rgba(15, 23, 42, 0.18)',
-        'sticky': '0 -1px 0 rgba(15, 23, 42, 0.06), 0 -8px 24px rgba(15, 23, 42, 0.06)',
-        'brand': '0 10px 30px -10px rgba(21, 111, 190, 0.55)',
+        'nav': '0 10px 30px -12px rgba(36, 31, 65, 0.3), 0 0 0 1px rgba(22, 19, 42, 0.04)',
+        'card': '0 1px 2px rgba(22, 19, 42, 0.04), 0 0 0 1px rgba(22, 19, 42, 0.06)',
+        'raised': '0 12px 30px -14px rgba(36, 31, 65, 0.38)',
+        'sticky': '0 -1px 0 rgba(22, 19, 42, 0.05), 0 -10px 24px -14px rgba(22, 19, 42, 0.25)',
+        'brand': '0 10px 30px -10px rgba(36, 31, 65, 0.55)',
+        'lime': '0 10px 22px -10px rgba(99, 107, 22, 0.7)',
       },
       animation: {
         'fade-in': 'fadeIn 0.2s ease-out forwards',

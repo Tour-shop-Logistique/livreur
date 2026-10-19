@@ -12,7 +12,7 @@ const TONES = {
   warning: { box: 'border border-warning-200 bg-warning-50', icon: 'text-warning-700', title: 'text-warning-800', text: 'text-warning-800' },
   danger: { box: 'border border-danger-200 bg-danger-50', icon: 'text-danger-600', title: 'text-danger-800', text: 'text-danger-700' },
   neutral: { box: 'bg-surface-100', icon: 'text-primary-600', title: 'text-surface-800', text: 'text-surface-600' },
-  emphasis: { box: 'bg-surface-900', icon: 'text-accent-300', title: 'text-white', text: 'text-white/85' },
+  emphasis: { box: 'bg-navy-900', icon: 'text-accent-300', title: 'text-white', text: 'text-white/85' },
 };
 
 export default function Callout({ tone = 'info', icon: Icon, title, children, action, to, size = 'md', role, className = '' }) {

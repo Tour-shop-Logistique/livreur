@@ -4,7 +4,7 @@ import { ExpeditionStatusBadge } from './StatusBadge';
 import RouteLine from './RouteLine';
 import { expeditionRoute } from './missionRoute';
 import { missionDetailPath } from '../../routes';
-import { expeditionPhase, MISSION_TYPE_LABEL, MISSION_MODE_LABEL } from '../../utils/missionFlow';
+import { expeditionPhase, MISSION_TYPE_LABEL, MISSION_MODE_LABEL, missionPrice } from '../../utils/missionFlow';
 import { formatPrice, formatDateTime } from '../../utils/format';
 
 // Carte d'une mission d'expedition qui m'est assignee (active ou historique).
@@ -22,7 +22,7 @@ export default function MissionCard({ mission }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className={`icon-tile h-10 w-10 ${isPickup ? 'bg-primary-50 text-primary-600' : 'bg-accent-50 text-accent-600'}`}>
+          <span className={`icon-tile h-10 w-10 ${isPickup ? 'bg-primary-50 text-primary-600' : 'bg-teal-50 text-teal-700'}`}>
             <Icon size={20} aria-hidden="true" />
           </span>
           <div className="min-w-0">
@@ -42,7 +42,7 @@ export default function MissionCard({ mission }) {
 
       <div className="divider mt-4 flex items-center justify-between pt-3">
         <div>
-          <p className="tabular text-lead font-bold text-surface-900">{formatPrice(mission.montant_final)}</p>
+          <p className="tabular text-lead font-bold text-surface-900">{formatPrice(missionPrice(mission))}</p>
           {mission.assignee_le && <p className="text-caption text-surface-500">Assignée {formatDateTime(mission.assignee_le).toLowerCase()}</p>}
         </div>
         <span className="flex items-center gap-0.5 text-label font-semibold text-primary-600">

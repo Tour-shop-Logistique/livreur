@@ -5,14 +5,15 @@ import { ChevronsRight, Loader2 } from 'lucide-react';
 // accidentelles (telephone en poche, en roulant). Clavier et lecteurs d'ecran
 // valident par Entree / activation : le clic "synthetique" (event.detail === 0)
 // est accepte, un simple tap au doigt ou a la souris ne l'est pas.
-const THUMB = 48;
+const THUMB = 50;
 const PAD = 6;
 const THRESHOLD = 0.85;
 
+// Design "Plume" : piste navy, curseur lime (l'action qui fait avancer la course).
 const TONES = {
-  accent: { track: 'bg-accent-700', thumb: 'text-accent-700' },
-  primary: { track: 'bg-primary-600', thumb: 'text-primary-700' },
-  success: { track: 'bg-success-700', thumb: 'text-success-700' },
+  accent: { track: 'bg-navy-900', thumb: 'bg-accent-400 text-accent-900' },
+  primary: { track: 'bg-navy-900', thumb: 'bg-accent-400 text-accent-900' },
+  success: { track: 'bg-success-700', thumb: 'bg-white text-success-700' },
 };
 
 export default function SlideToConfirm({
@@ -69,7 +70,7 @@ export default function SlideToConfirm({
   return (
     <div
       ref={trackRef}
-      className={`relative flex h-[60px] w-full select-none items-center justify-center overflow-hidden rounded-2xl ${t.track} ${disabled ? 'opacity-50' : ''}`}
+      className={`relative flex h-[62px] w-full select-none items-center justify-center overflow-hidden rounded-[1.25rem] ${t.track} ${disabled ? 'opacity-50' : ''}`}
     >
       <span
         className="pointer-events-none pl-12 text-base font-bold text-white"
@@ -88,7 +89,7 @@ export default function SlideToConfirm({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         onClick={onClick}
-        className={`absolute flex touch-none items-center justify-center rounded-xl bg-white shadow-card ${t.thumb} ${dragging ? '' : 'transition-transform duration-200'} ${inactive ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}
+        className={`absolute flex touch-none items-center justify-center rounded-[0.95rem] ${t.thumb} ${dragging ? '' : 'transition-transform duration-200'} ${inactive ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}
         style={{ left: PAD, top: PAD, width: THUMB, height: THUMB, transform: `translateX(${shown}px)` }}
       >
         {loading

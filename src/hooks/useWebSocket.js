@@ -99,10 +99,10 @@ function unsubscribe(echo, channelName, callback) {
  *
  * @param {string|null} userId - ID (uuid) du User livreur connecte.
  * @param {Object} handlers - (data[], meta) => void
- * @param {Function} handlers.onMissionAvailable     - Nouvelle mission express ouverte aux offres.
+ * @param {Function} handlers.onMissionAvailable     - Nouvelle course express a prix fixe sur le reseau.
  * @param {Function} handlers.onMissionProposed      - Mission groupage proposee, a accepter sous 15 min.
- * @param {Function} handlers.onMissionAssigned      - Mission assignee (proposition acceptee / offre express retenue).
- * @param {Function} handlers.onMissionClosed        - Mission cloturee (offre acceptee, gagnant ou non).
+ * @param {Function} handlers.onMissionAssigned      - Mission assignee (proposition ou course express acceptee).
+ * @param {Function} handlers.onMissionClosed        - Course express plus ouverte (prise par un livreur).
  * @param {Function} handlers.onMarketplaceAvailable - Nouvelle livraison marketplace sur le reseau.
  * @param {Function} handlers.onMarketplaceProposed  - Affectation directe d'un vendeur, a accepter sous 15 min.
  * @param {Function} handlers.onMarketplaceAssigned  - Livraison marketplace assignee (apres acceptation).

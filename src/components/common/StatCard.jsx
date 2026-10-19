@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 
 const TONES = {
   primary: 'bg-primary-50 text-primary-600',
-  accent: 'bg-accent-50 text-accent-600',
+  accent: 'bg-accent-50 text-accent-700',
   success: 'bg-success-50 text-success-600',
   warning: 'bg-warning-50 text-warning-600',
   neutral: 'bg-surface-100 text-surface-600',

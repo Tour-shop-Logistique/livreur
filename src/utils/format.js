@@ -1,13 +1,52 @@
 import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
-const priceFormatter = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
+// Devise dynamique (CHANGEMENTS_APPS_CLIENT_LIVREUR §1) : `user.devise` (ISO 4217)
+// vient du backoffice de rattachement — plus de XOF code en dur. La devise par
+// defaut est synchronisee depuis le store (cf. store/index.js).
+const FALLBACK_CURRENCY = 'XOF';
+let defaultCurrency = FALLBACK_CURRENCY;
 
-export const formatPrice = (value, currency = 'FCFA') => {
+export const setDefaultCurrency = (code) => {
+  defaultCurrency = (typeof code === 'string' && code.trim()) ? code.trim().toUpperCase() : FALLBACK_CURRENCY;
+};
+
+export const getDefaultCurrency = () => defaultCurrency;
+
+// Les francs CFA (UEMOA / CEMAC) s'affichent "FCFA" ; sinon le symbole Intl (€, $…).
+const CFA = new Set(['XOF', 'XAF']);
+
+// Libelle court d'une devise : 'FCFA', '€', 'GNF'…
+export const currencyLabel = (code = defaultCurrency) => {
+  const c = String(code || defaultCurrency).toUpperCase();
+  if (CFA.has(c)) return 'FCFA';
+  try {
+    const part = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: c, currencyDisplay: 'narrowSymbol' })
+      .formatToParts(0)
+      .find((p) => p.type === 'currency');
+    return part?.value || c;
+  } catch {
+    return c; // code inconnu d'Intl : on affiche le code tel quel
+  }
+};
+
+const decimalsFor = (code) => {
+  try {
+    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: code }).resolvedOptions().maximumFractionDigits;
+  } catch {
+    return 0;
+  }
+};
+
+// `currency` : code ISO (defaut : devise de l'utilisateur) ou '' pour le nombre seul.
+export const formatPrice = (value, currency) => {
   if (value === null || value === undefined || value === '') return '—';
   const n = Number(value);
   if (Number.isNaN(n)) return '—';
-  return `${priceFormatter.format(n)} ${currency}`;
+  const code = currency === undefined ? defaultCurrency : currency;
+  const digits = code ? (CFA.has(String(code).toUpperCase()) ? 0 : Math.min(decimalsFor(code), Number.isInteger(n) ? 0 : 2)) : 0;
+  const number = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: digits }).format(n);
+  return code ? `${number} ${currencyLabel(code)}` : number;
 };
 
 const toDate = (value) => {

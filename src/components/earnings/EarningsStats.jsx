@@ -67,7 +67,7 @@ function DailyGainsChart({ days }) {
               onClick={() => setActive(i)}
             >
               <div
-                className={`w-full max-w-6 rounded-t bg-primary-600 transition-opacity ${shown >= 0 && i !== shown && active !== null ? 'opacity-40' : ''}`}
+                className={`w-full max-w-6 rounded-t-md transition-opacity ${i === days.length - 1 ? 'bg-accent-400' : 'bg-primary-300'} ${shown >= 0 && i !== shown && active !== null ? 'opacity-40' : ''}`}
                 style={{ height: d.gains > 0 ? `${Math.max(4, (d.gains / max) * 100)}%` : 0 }}
               />
             </div>
@@ -159,7 +159,7 @@ export default function EarningsStats({ historyItems, marketplaceItems }) {
               </span>
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-200" aria-hidden="true">
-              <div className="h-full rounded-full bg-success-500" style={{ width: `${Math.min(100, stats.offres.taux * 100)}%` }} />
+              <div className="h-full rounded-full bg-teal-500" style={{ width: `${Math.min(100, stats.offres.taux * 100)}%` }} />
             </div>
           </div>
         )}

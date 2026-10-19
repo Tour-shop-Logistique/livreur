@@ -17,7 +17,7 @@ export default function MissionStepper({ steps, current }) {
                   done
                     ? 'bg-success-600 text-white'
                     : next
-                      ? 'border-2 border-accent-600 bg-white text-accent-700 ring-4 ring-accent-100'
+                      ? 'border-2 border-teal-500 bg-white text-teal-700 ring-4 ring-teal-100'
                       : 'border-2 border-surface-200 bg-white text-surface-400'
                 }`}
                 aria-hidden="true"
@@ -30,7 +30,7 @@ export default function MissionStepper({ steps, current }) {
               <p className={`text-sm ${done ? 'font-medium text-surface-800' : next ? 'font-semibold text-surface-900' : 'text-surface-500'}`}>
                 {step.label}
               </p>
-              {next && <p className="text-xs font-medium text-accent-700">Étape en cours</p>}
+              {next && <p className="text-xs font-bold text-teal-700">Étape en cours</p>}
               <span className="sr-only">{done ? 'terminée' : next ? 'en cours' : 'à venir'}</span>
             </div>
           </li>

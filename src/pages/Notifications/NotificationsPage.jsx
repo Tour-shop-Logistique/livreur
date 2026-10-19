@@ -21,8 +21,8 @@ import { isRealtimeConfigured } from '../../services/echo';
 // Activite = historique persiste des notifications (GET /livreur/notifications,
 // partage entre appareils) + evenements temps reel recus app ouverte.
 const KIND = {
-  available: { icon: Zap, className: 'bg-accent-50 text-accent-600' },
-  proposed: { icon: Timer, className: 'bg-accent-50 text-accent-600' },
+  available: { icon: Zap, className: 'bg-accent-50 text-accent-700' },
+  proposed: { icon: Timer, className: 'bg-primary-50 text-primary-600' },
   assigned: { icon: PackageCheck, className: 'bg-primary-50 text-primary-600' },
   accepted: { icon: CircleCheckBig, className: 'bg-success-50 text-success-600' },
   refused: { icon: CircleX, className: 'bg-surface-100 text-surface-500' },
@@ -57,7 +57,7 @@ function ActivityItem({ item, onOpen }) {
           <div className="flex items-start justify-between gap-3">
             <p className={`text-sm text-surface-900 ${item.lue ? 'font-medium' : 'font-semibold'}`}>{item.titre}</p>
             <span className="flex shrink-0 items-center gap-1.5 pt-0.5">
-              {!item.lue && <span className="status-dot bg-accent-600" aria-hidden="true" />}
+              {!item.lue && <span className="status-dot bg-accent-400 ring-2 ring-accent-100" aria-hidden="true" />}
               <time dateTime={item.date} title={formatDateTime(item.date)} className="tabular text-caption text-surface-500">
                 {formatRelativeShort(item.date)}
               </time>

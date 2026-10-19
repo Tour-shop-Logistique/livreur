@@ -61,16 +61,16 @@ export default function BottomSheet({ open, onClose, title, description, childre
       aria-labelledby={titleId}
       aria-describedby={description ? descriptionId : undefined}
     >
-      <button type="button" className="absolute inset-0 animate-fade-in bg-surface-900/50" onClick={onClose} aria-label="Fermer" tabIndex={-1} />
+      <button type="button" className="absolute inset-0 animate-fade-in bg-navy-950/45" onClick={onClose} aria-label="Fermer" tabIndex={-1} />
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="relative flex max-h-[92dvh] w-full max-w-md animate-sheet-up flex-col rounded-t-2xl bg-white shadow-raised outline-none focus-visible:ring-0 sm:rounded-2xl"
+        className="relative flex max-h-[92dvh] w-full max-w-md animate-sheet-up flex-col rounded-t-[1.875rem] bg-white shadow-raised outline-none focus-visible:ring-0 sm:rounded-3xl"
       >
-        <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-surface-200 sm:hidden" aria-hidden="true" />
+        <div className="mx-auto mt-3 h-[5px] w-11 rounded-full bg-[#d9deea] sm:hidden" aria-hidden="true" />
         <div className="flex items-start justify-between gap-3 px-5 pb-3 pt-3">
           <div className="min-w-0 pt-2">
-            <h2 id={titleId} className="text-lg font-semibold text-surface-900">{title}</h2>
+            <h2 id={titleId} className="font-heading text-xl font-bold tracking-tight text-navy-950">{title}</h2>
             {description && <p id={descriptionId} className="mt-0.5 text-sm text-surface-500">{description}</p>}
           </div>
           <IconButton icon={X} label="Fermer" onClick={onClose} className="-mr-2.5 text-surface-500" />

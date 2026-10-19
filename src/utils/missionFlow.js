@@ -141,7 +141,7 @@ export const expeditionPhaseLabel = (mission) => {
   return {
     proposal: 'À accepter',
     refused: 'Refusée',
-    offer: 'Offre en cours',
+    offer: 'Disponible',
     start: pickup ? 'À enlever' : 'À livrer',
     pickup: 'Enlèvement en cours',
     deposit: "À déposer à l'agence",
@@ -165,6 +165,18 @@ export const expeditionPatchAfter = (actionKey) => {
 };
 
 export const isActiveExpedition = (m) => m?.statut === 'assignee';
+
+// Prix de la course. En express il est impose par le backend (`montant_fixe`,
+// grille commune x vehicule x tranche km x taux express) ; une fois la mission
+// acceptee il est recopie dans `montant_final`.
+export const missionPrice = (m) => val(m?.montant_final) ?? val(m?.montant_fixe);
+
+// Qui regle la course (CHANGEMENTS_APPS_CLIENT_LIVREUR §3-4). Le livreur n'a
+// rien a faire : son solde est credite automatiquement a la cloture.
+export const missionPayerLabel = (m) => {
+  if (m?.type === 'livraison' && m?.expedition?.livraison_payee_par_destinataire) return 'Le destinataire';
+  return "L'agence";
+};
 
 // Instructions saisies a la creation de l'expedition (lecture seule, §4.2),
 // a afficher avant l'etape correspondante.

@@ -1,14 +1,14 @@
 import { contactOf, agencyOf, addressLine } from '../../utils/missionFlow';
 
-// Mission express ouverte aux offres : seules les villes (ou pays) sont utiles
-// pour decider de proposer un tarif (§4.5).
+// Course express ouverte au reseau : seules les villes (ou pays) sont utiles
+// pour decider d'accepter (§4.5) — adresses completes une fois acceptee.
 export function expressRoute(mission) {
   const exp = mission?.expedition || {};
   const expediteur = contactOf(exp, 'expediteur');
   const destinataire = contactOf(exp, 'destinataire');
   return {
-    from: { label: 'Départ', title: expediteur.ville || exp.pays_depart || '—' },
-    to: { label: 'Arrivée', title: destinataire.ville || exp.pays_destination || '—' },
+    from: { label: 'Récupérer', title: [expediteur.quartier, expediteur.ville].filter(Boolean).join(', ') || exp.pays_depart || '—' },
+    to: { label: 'Déposer', title: [destinataire.quartier, destinataire.ville].filter(Boolean).join(', ') || exp.pays_destination || '—' },
   };
 }
 

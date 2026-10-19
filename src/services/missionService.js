@@ -13,7 +13,7 @@ const fetchMissions = async ({ statut, page = 1 } = {}) => {
 };
 
 // GET /expedition/livreur/missions-disponibles — missions EXPRESS ouvertes au reseau,
-// filtrees par defaut sur la `ville` du profil (§4.5). `ville` la remplace (livreur
+// avec leur prix impose `montant_fixe` (= `montant_final`), filtrees par defaut sur la `ville` du profil (§4.5). `ville` la remplace (livreur
 // en deplacement) ; `lat`/`lng` ajoutent `distance_km`, filtrent sur
 // `zone_de_livraison_km` et trient par distance.
 const fetchAvailableMissions = async ({ ville, lat, lng } = {}) => {
@@ -42,26 +42,19 @@ const addNote = async (missionId, { contenu, photo }) => {
   return data;
 };
 
-// POST /expedition/livreur/missions/{missionId}/proposer — idempotent (remplace l'offre).
-const proposeOffer = async (missionId, montant) => {
-  const { data } = await api.post(`${BASE}/missions/${missionId}/proposer`, { montant_propose: montant });
-  return data;
-};
-
-// DELETE /expedition/livreur/missions/{missionId}/offre
-const withdrawOffer = async (missionId) => {
-  const { data } = await api.delete(`${BASE}/missions/${missionId}/offre`);
-  return data;
-};
-
-// --- Proposition groupage (§4.1bis) : `proposee` 15 min, accord explicite ---
-
 // POST /expedition/livreur/missions/{missionId}/accepter -> assignee.
-// 422 si expiree, livreur indisponible ou deja une mission en cours.
-const acceptProposal = async (missionId) => {
+// Sert aux deux modes :
+//  - EXPRESS : prix impose (`montant_fixe`), premier arrive premier servi
+//    (CHANGEMENTS_APPS_CLIENT_LIVREUR §2). Les anciennes routes `proposer` /
+//    `offre` sont depreciees et ne sont plus appelees.
+//  - GROUPAGE propose par le backoffice (§4.1bis), 15 min pour repondre.
+// 422 : "Cette mission a déjà été prise par un autre livreur.", "Cette
+// proposition a expiré.", livreur indisponible, ou deja une mission en cours.
+const acceptMission = async (missionId) => {
   const { data } = await api.post(`${BASE}/missions/${missionId}/accepter`);
   return data;
 };
+const acceptProposal = acceptMission;
 
 // POST /expedition/livreur/missions/{missionId}/refuser { motif? } — la mission
 // retourne dans la file du backoffice.
@@ -116,8 +109,7 @@ const validateDelivery = async (expeditionId, proof) => {
 const missionService = {
   fetchMissions,
   fetchAvailableMissions,
-  proposeOffer,
-  withdrawOffer,
+  acceptMission,
   acceptProposal,
   refuseProposal,
   fetchNotes,

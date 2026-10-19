@@ -11,10 +11,10 @@ export default function FilterChips({ options, value, onChange, className = '' }
             role="tab"
             aria-selected={active}
             onClick={() => onChange(opt.key)}
-            className={`flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-label font-medium transition ${
+            className={`flex min-h-[2.375rem] shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-label font-semibold transition ${
               active
-                ? 'border-surface-900 bg-surface-900 text-white'
-                : 'border-surface-200 bg-white text-surface-600 hover:border-surface-300'
+                ? 'border-primary-600 bg-primary-600 text-white'
+                : 'border-[#d9deea] bg-white text-navy-700 hover:border-surface-300'
             }`}
           >
             {opt.label}

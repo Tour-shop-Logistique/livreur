@@ -9,33 +9,22 @@ import { loadPreferredCity, savePreferredCity } from '../../utils/cityFilter';
 //                refuser sous 15 min (§4.1bis)
 //  - active    : missions `assignee` (un livreur n'a jamais 2 missions actives)
 //  - history   : toutes mes missions, paginees, filtrables par statut
-//  - available : missions EXPRESS ouvertes au reseau (offres de prix)
-//  - offers    : mes offres envoyees { [missionId]: montant } — l'API ne les
-//                renvoie pas dans la liste, on les garde localement.
+//  - available : missions EXPRESS ouvertes au reseau, a prix impose
+//                (`montant_fixe`) — premier arrive, premier servi
+//                (CHANGEMENTS_APPS_CLIENT_LIVREUR §2). Plus d'offres de prix.
 
-const OFFERS_KEY = 'livreur_offres_express';
+// Anciennes offres express gardees en local (modele par offres, deprecie).
+try { localStorage.removeItem('livreur_offres_express'); } catch { /* non bloquant */ }
 
-const loadOffers = () => {
-  try {
-    return JSON.parse(localStorage.getItem(OFFERS_KEY)) || {};
-  } catch {
-    return {};
-  }
-};
-const saveOffers = (offers) => {
-  try {
-    localStorage.setItem(OFFERS_KEY, JSON.stringify(offers));
-  } catch {
-    // stockage indisponible (navigation privee) : non bloquant
-  }
-};
+// Message 422 renvoye quand un autre livreur a ete plus rapide : cas normal.
+const ALREADY_TAKEN = /d[ée]j[aà] [ée]t[ée] prise/i;
+export const isAlreadyTakenError = (message) => ALREADY_TAKEN.test(String(message || ''));
 
 const initialState = {
   proposals: { items: [], status: 'idle', error: null, loaded: false },
   active: { items: [], status: 'idle', error: null, loaded: false },
   history: { items: [], status: 'idle', error: null, page: 1, lastPage: 1, statut: '', loaded: false },
   available: { items: [], status: 'idle', error: null, loaded: false },
-  offers: loadOffers(),
   pendingAction: null, // id de la mission en cours d'action
   incoming: null, // id d'une mission express tout juste publiee (feuille "Nouvelle mission")
   // Filtre geographique des listes "disponibles" (missions express ET livraisons
@@ -127,28 +116,17 @@ export const fetchAvailableMissions = createAsyncThunk(
   }
 );
 
-export const proposeOffer = createAsyncThunk(
-  'missions/proposeOffer',
-  async ({ missionId, montant }, { rejectWithValue }) => {
-    try {
-      await missionService.proposeOffer(missionId, montant);
-      return { missionId, montant };
-    } catch (err) {
-      return rejectWithValue(apiErrorMessage(err, "Impossible d'envoyer votre offre."));
-    }
-  }
-);
-
-export const withdrawOffer = createAsyncThunk(
-  'missions/withdrawOffer',
+// Mission express : POST .../missions/{id}/accepter, prix impose. Rejet :
+// { message, taken } — `taken` = un autre livreur l'a prise avant (cas normal).
+export const acceptExpressMission = createAsyncThunk(
+  'missions/acceptExpress',
   async (missionId, { rejectWithValue }) => {
     try {
-      await missionService.withdrawOffer(missionId);
-      return missionId;
+      const data = await missionService.acceptMission(missionId);
+      return { missionId, mission: data?.mission };
     } catch (err) {
-      // 404 = plus d'offre active cote serveur : on nettoie quand meme localement.
-      if (err.response?.status === 404) return missionId;
-      return rejectWithValue(apiErrorMessage(err, "Impossible de retirer votre offre."));
+      const message = apiErrorMessage(err, "Impossible d'accepter cette course.");
+      return rejectWithValue({ message, taken: isAlreadyTakenError(message) });
     }
   }
 );
@@ -189,10 +167,6 @@ const missionsSlice = createSlice({
   reducers: {
     removeAvailable(state, action) {
       state.available.items = state.available.items.filter((m) => m.id !== action.payload);
-    },
-    clearOffer(state, action) {
-      delete state.offers[action.payload];
-      saveOffers(state.offers);
     },
     setIncoming(state, action) {
       state.incoming = action.payload;
@@ -274,10 +248,6 @@ const missionsSlice = createSlice({
       .addCase(fetchAvailableMissions.pending, (state) => { state.available.status = 'loading'; state.available.error = null; })
       .addCase(fetchAvailableMissions.fulfilled, (state, action) => {
         state.available = { items: action.payload, status: 'idle', error: null, loaded: true };
-        // Les offres sur des missions qui ne sont plus ouvertes sont obsoletes.
-        const openIds = new Set(action.payload.map((m) => String(m.id)));
-        Object.keys(state.offers).forEach((id) => { if (!openIds.has(id)) delete state.offers[id]; });
-        saveOffers(state.offers);
       })
       .addCase(fetchAvailableMissions.rejected, (state, action) => {
         state.available.status = 'error';
@@ -285,13 +255,26 @@ const missionsSlice = createSlice({
         state.available.loaded = true;
       })
 
-      .addCase(proposeOffer.fulfilled, (state, action) => {
-        state.offers[action.payload.missionId] = action.payload.montant;
-        saveOffers(state.offers);
+      .addCase(acceptExpressMission.pending, (state, action) => { state.pendingAction = action.meta.arg; })
+      .addCase(acceptExpressMission.rejected, (state, action) => {
+        state.pendingAction = null;
+        // Deja prise : la course n'est plus ouverte, on la retire de la liste.
+        if (action.payload?.taken) {
+          state.available.items = state.available.items.filter((m) => String(m.id) !== String(action.meta.arg));
+          if (String(state.incoming) === String(action.meta.arg)) state.incoming = null;
+        }
       })
-      .addCase(withdrawOffer.fulfilled, (state, action) => {
-        delete state.offers[action.payload];
-        saveOffers(state.offers);
+      .addCase(acceptExpressMission.fulfilled, (state, action) => {
+        state.pendingAction = null;
+        const { missionId, mission } = action.payload;
+        const open = state.available.items.find((m) => String(m.id) === String(missionId));
+        state.available.items = state.available.items.filter((m) => String(m.id) !== String(missionId));
+        if (String(state.incoming) === String(missionId)) state.incoming = null;
+        const accepted = { ...(open || {}), ...(mission || {}), statut: 'assignee' };
+        if (!mission?.expedition && open?.expedition) accepted.expedition = open.expedition;
+        if (accepted.id && !state.active.items.some((m) => String(m.id) === String(missionId))) {
+          state.active.items = [accepted, ...state.active.items];
+        }
       })
 
       .addCase(runMissionAction.pending, (state, action) => { state.pendingAction = action.meta.missionId ?? action.meta.arg.mission.id; })
@@ -317,7 +300,7 @@ const missionsSlice = createSlice({
 });
 
 export const {
-  removeAvailable, clearOffer, setIncoming, clearIncoming, removeProposal, setGeoFilter,
+  removeAvailable, setIncoming, clearIncoming, removeProposal, setGeoFilter,
 } = missionsSlice.actions;
 
 export const selectMissionById = (state, id) => {

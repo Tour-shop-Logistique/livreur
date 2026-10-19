@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link, useSearchParams } from 'react-router-dom';
-import { toast } from 'sonner';
 import {
   RefreshCw, Route, Zap, ShoppingBag, History, WifiOff, Lock, ChevronRight, PackageOpen, PackageCheck,
 } from 'lucide-react';
@@ -15,19 +14,18 @@ import EmptyState from '../../components/common/EmptyState';
 import Callout from '../../components/common/Callout';
 import MissionCard from '../../components/missions/MissionCard';
 import MarketplaceCard from '../../components/missions/MarketplaceCard';
-import OfferCard from '../../components/missions/OfferCard';
-import OfferSheet from '../../components/missions/OfferSheet';
+import ExpressCard from '../../components/missions/ExpressCard';
+import useAcceptExpress from '../../hooks/useAcceptExpress';
 import ProposalCard from '../../components/missions/ProposalCard';
+import RouteLine from '../../components/missions/RouteLine';
 import GeoFilterBar from '../../components/missions/GeoFilterBar';
 import CoursesMap from '../../components/missions/CoursesMap';
 import { expressRoute, expeditionRoute } from '../../components/missions/missionRoute';
-import {
-  fetchMissionHistory, proposeOffer, withdrawOffer,
-} from '../../store/slices/missionsSlice';
-import { proposeMarketplaceOffer, withdrawMarketplaceOffer } from '../../store/slices/marketplaceSlice';
+import { fetchMissionHistory } from '../../store/slices/missionsSlice';
 import { refreshMissions } from '../../hooks/useRealtime';
 import {
   MISSION_TYPE_LABEL, isMarketplaceProposal, isProposalExpired, marketplacePickup, marketplaceDropoff, placeLabel,
+  missionPrice,
 } from '../../utils/missionFlow';
 import { ROUTES, missionDetailPath, marketplaceDetailPath } from '../../routes';
 import { formatPrice, formatDistance } from '../../utils/format';
@@ -40,12 +38,6 @@ const HISTORY_FILTERS = [
   { key: 'refusee', label: 'Refusées' },
   { key: 'annulee', label: 'Annulées' },
 ];
-
-const expressOfferTarget = (m) => ({
-  kind: 'express',
-  id: m.id,
-  title: `${MISSION_TYPE_LABEL[m.type] || 'Mission'} ${m.expedition?.reference || ''}`.trim(),
-});
 
 function ErrorState({ message, onRetry }) {
   return (
@@ -80,27 +72,20 @@ export default function MissionsPage() {
   const user = useSelector((state) => state.auth.user);
   const disponible = Boolean(user?.disponible);
   const {
-    proposals, active, available, history, offers,
+    proposals, active, available, history,
   } = useSelector((state) => state.missions);
   const marketplace = useSelector((state) => state.marketplace);
   const abonnementBloque = useSelector((state) => state.abonnement.bloque);
-
-  const [offerTarget, setOfferTarget] = useState(null); // { kind, id, title }
-  const [offerLoading, setOfferLoading] = useState(false);
+  const { accept: acceptExpress, isAccepting, busy: accepting } = useAcceptExpress();
 
   useEffect(() => {
     if (tab === 'historique' && !history.loaded) dispatch(fetchMissionHistory({ statut: '', page: 1 }));
   }, [dispatch, tab, history.loaded]);
 
-  // Arrivee depuis la feuille "Nouvelle mission" : ouvre directement l'offre.
-  const offreId = params.get('offre');
+  // Ancien lien profond `?offre=` (modele par offres) : on le nettoie.
   useEffect(() => {
-    if (!offreId) return;
-    const mission = available.items.find((m) => String(m.id) === offreId);
-    if (!mission && !available.loaded) return; // liste pas encore chargee
-    if (mission && disponible) setOfferTarget(expressOfferTarget(mission));
-    setParams({ onglet: 'disponibles' }, { replace: true });
-  }, [offreId, available.items, available.loaded, disponible, setParams]);
+    if (params.get('offre')) setParams({ onglet: 'disponibles' }, { replace: true });
+  }, [params, setParams]);
 
   const activeMarketplace = useMemo(
     () => marketplace.mine.items.filter((l) => l.statut === 'assignee' || l.statut === 'en_cours'),
@@ -122,7 +107,7 @@ export default function MissionsPage() {
   const tabs = [
     { key: 'encours', label: 'En cours', count: activeCount },
     { key: 'disponibles', label: 'Express', count: available.items.length },
-    { key: 'marketplace', label: 'Marketplace', count: marketplace.available.items.length },
+    { key: 'marketplace', label: 'Marketplace', count: marketplace.available.items.filter((l) => l.mode !== 'standard').length },
     { key: 'historique', label: 'Historique' },
   ];
 
@@ -131,37 +116,21 @@ export default function MissionsPage() {
 
   const refresh = () => refreshMissions(dispatch, history.statut);
 
-  const currentOffer = offerTarget
-    ? (offerTarget.kind === 'express' ? offers[offerTarget.id] : marketplace.offers[offerTarget.id])
-    : undefined;
-
-  const submitOffer = async (montant) => {
-    setOfferLoading(true);
-    const action = offerTarget.kind === 'express'
-      ? proposeOffer({ missionId: offerTarget.id, montant })
-      : proposeMarketplaceOffer({ id: offerTarget.id, montant });
-    const result = await dispatch(action);
-    setOfferLoading(false);
-    if (result.meta.requestStatus === 'fulfilled') {
-      toast.success(currentOffer != null ? 'Offre mise à jour.' : 'Offre envoyée.', { description: 'Vous serez notifié si elle est retenue.' });
-      setOfferTarget(null);
-    } else {
-      toast.error(result.payload);
-    }
+  // Livraisons marketplace disponibles : express (a accepter, prix fixe) et
+  // standard (attribuees par l'agence, visibles pour information).
+  const marketplaceExpress = marketplace.available.items.filter((l) => l.mode !== 'standard');
+  const marketplaceStandard = marketplace.available.items.filter((l) => l.mode === 'standard');
+  const marketplaceRoute = (l) => (l.retrait || l.livraison) && {
+    from: { label: 'Retrait', title: placeLabel(marketplacePickup(l)) },
+    to: { label: 'Livraison', title: placeLabel(marketplaceDropoff(l)) },
   };
-
-  const removeOffer = async () => {
-    setOfferLoading(true);
-    const action = offerTarget.kind === 'express' ? withdrawOffer(offerTarget.id) : withdrawMarketplaceOffer(offerTarget.id);
-    const result = await dispatch(action);
-    setOfferLoading(false);
-    if (result.meta.requestStatus === 'fulfilled') {
-      toast.success('Offre retirée.');
-      setOfferTarget(null);
-    } else {
-      toast.error(result.payload);
-    }
-  };
+  const marketplaceMeta = (l) => (
+    <>
+      {l.commande?.montant_articles != null && <span>Articles : <strong className="text-navy-950">{formatPrice(l.commande.montant_articles)}</strong></span>}
+      {l.commande?.nombre_articles != null && <span>{l.commande.nombre_articles} article{l.commande.nombre_articles > 1 ? 's' : ''}</span>}
+      {l.distance_km != null && <span>{formatDistance(l.distance_km)}</span>}
+    </>
+  );
 
   return (
     <div>
@@ -189,7 +158,7 @@ export default function MissionsPage() {
                     icon={m.type === 'enlevement' ? PackageOpen : PackageCheck}
                     title={`${MISSION_TYPE_LABEL[m.type] || 'Mission'} · groupage`}
                     subtitle={m.expedition?.reference}
-                    montant={m.montant_final}
+                    montant={missionPrice(m)}
                     expireLe={m.expire_le}
                     route={expeditionRoute(m)}
                   />
@@ -219,7 +188,7 @@ export default function MissionsPage() {
                 icon={Route}
                 title="Aucune mission en cours"
                 description={disponible
-                  ? "Les missions assignées par le backoffice et vos offres acceptées apparaîtront ici."
+                  ? 'Les missions assignées par le backoffice et les courses express que vous acceptez apparaîtront ici.'
                   : 'Vous êtes hors ligne. Passez disponible depuis l\'accueil pour recevoir des missions.'}
                 action={disponible && available.items.length > 0 && (
                   <button type="button" className="btn-accent btn-sm" onClick={() => setTab('disponibles')}>
@@ -234,12 +203,18 @@ export default function MissionsPage() {
         {/* EXPRESS */}
         {tab === 'disponibles' && (
           <div className="space-y-3">
-            <p className="px-1 text-xs leading-relaxed text-surface-500">
-              Missions sans livreur rattaché, ouvertes au réseau. Proposez votre prix : le client compare les offres et choisit.
+            <p className="flex items-start gap-2 px-1 text-[0.8125rem] leading-relaxed text-surface-500">
+              <Zap size={16} className="mt-0.5 shrink-0 fill-accent-400 text-accent-600" aria-hidden="true" />
+              Prix fixe, crédité sur votre solde. Le premier livreur qui accepte remporte la course.
             </p>
             {!disponible && (
               <Callout tone="warning" size="sm" icon={WifiOff}>
-                Vous êtes hors ligne : passez disponible pour pouvoir proposer une offre.
+                Vous êtes hors ligne : passez disponible pour pouvoir accepter une course.
+              </Callout>
+            )}
+            {disponible && active.items.length > 0 && (
+              <Callout tone="neutral" size="sm" icon={Route}>
+                Vous avez déjà une mission en cours : terminez-la avant d'accepter une nouvelle course.
               </Callout>
             )}
             {!available.loaded && available.status === 'loading' && <SkeletonCard />}
@@ -249,17 +224,18 @@ export default function MissionsPage() {
               <EmptyState icon={Zap} title="Aucune mission express" description="Aucune mission dans cette zone pour l'instant. Les nouvelles vous seront signalées en temps réel." />
             )}
             {expressList.map((m) => (
-              <OfferCard
+              <ExpressCard
                 key={m.id}
-                kind="express"
-                title={`${MISSION_TYPE_LABEL[m.type] || 'Mission'} express`}
+                to={missionDetailPath(m.id)}
+                title={`${MISSION_TYPE_LABEL[m.type] || 'Mission'} · Express`}
                 subtitle={m.expedition?.reference}
                 route={expressRoute(m)}
+                price={missionPrice(m)}
                 meta={m.distance_km != null && <span>{formatDistance(m.distance_km)}</span>}
-                myOffer={offers[m.id]}
-                disabled={!disponible}
-                disabledReason="Passez disponible pour proposer une offre."
-                onOffer={() => setOfferTarget(expressOfferTarget(m))}
+                loading={isAccepting(m.id)}
+                disabled={!disponible || active.items.length > 0 || (accepting && !isAccepting(m.id))}
+                disabledReason={!disponible ? 'Passez disponible pour accepter.' : active.items.length > 0 ? 'Mission en cours.' : null}
+                onAccept={() => acceptExpress(m)}
               />
             ))}
           </div>
@@ -272,7 +248,11 @@ export default function MissionsPage() {
               <BlockedState />
             ) : (
               <section className="space-y-3">
-                <h2 className="section-title">Ouvertes aux offres</h2>
+                <h2 className="section-title">Livraisons de ventes</h2>
+                <p className="flex items-start gap-2 px-1 text-[0.8125rem] leading-relaxed text-surface-500">
+                  <Zap size={16} className="mt-0.5 shrink-0 fill-accent-400 text-accent-600" aria-hidden="true" />
+                  Prix fixe en express : le premier livreur qui accepte récupère l’article chez le vendeur.
+                </p>
                 <GeoFilterBar />
                 {!marketplace.available.loaded && marketplace.available.status === 'loading' && <SkeletonCard count={2} />}
                 {marketplace.available.status === 'error' && marketplace.available.items.length === 0 && (
@@ -281,27 +261,35 @@ export default function MissionsPage() {
                 {marketplace.available.loaded && marketplace.available.status !== 'error' && marketplace.available.items.length === 0 && (
                   <EmptyState compact icon={ShoppingBag} title="Aucune livraison marketplace" description="Les ventes à livrer dans cette zone apparaîtront ici." />
                 )}
-                {marketplace.available.items.map((l) => (
-                  <OfferCard
+                {marketplaceExpress.map((l) => (
+                  <ExpressCard
                     key={l.id}
-                    kind="marketplace"
-                    title="Livraison d'une vente"
-                    subtitle={`Cde #${String(l.commande?.id || '').slice(0, 8)}`}
-                    route={(l.retrait || l.livraison) && {
-                      from: { label: 'Retrait', title: placeLabel(marketplacePickup(l)) },
-                      to: { label: 'Livraison', title: placeLabel(marketplaceDropoff(l)) },
-                    }}
-                    meta={(
-                      <>
-                        {l.commande?.montant_articles != null && <span>Valeur des articles : <strong className="text-surface-700">{formatPrice(l.commande.montant_articles)}</strong></span>}
-                        {l.commande?.nombre_articles != null && <span>{l.commande.nombre_articles} article{l.commande.nombre_articles > 1 ? 's' : ''}</span>}
-                        {l.distance_km != null && <span>{formatDistance(l.distance_km)}</span>}
-                      </>
-                    )}
-                    myOffer={marketplace.offers[l.id]}
-                    onOffer={() => setOfferTarget({ kind: 'marketplace', id: l.id, title: 'Livraison marketplace' })}
+                    title="Vente · Express"
+                    subtitle={`Cde #${String(l.commande?.id || l.commande_marketplace_id || '').slice(0, 8)}`}
+                    route={marketplaceRoute(l)}
+                    price={l.montant_final}
+                    meta={marketplaceMeta(l)}
+                    loading={isAccepting(l.id)}
+                    disabled={!disponible || (accepting && !isAccepting(l.id))}
+                    disabledReason={!disponible ? 'Passez disponible pour accepter.' : null}
+                    onAccept={() => acceptExpress(l, { kind: 'marketplace' })}
                   />
                 ))}
+                {marketplaceStandard.length > 0 && (
+                  <>
+                    <h3 className="px-1 pt-2 text-xs font-bold uppercase tracking-[0.06em] text-surface-500">Standard · attribuées par l’agence</h3>
+                    {marketplaceStandard.map((l) => (
+                      <article key={l.id} className="card p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="badge bg-primary-50 text-primary-700">Vente · Standard</span>
+                          {l.montant_final != null && <span className="tabular font-heading font-bold text-navy-950">{formatPrice(l.montant_final)}</span>}
+                        </div>
+                        {marketplaceRoute(l) && <div className="mt-3"><RouteLine {...marketplaceRoute(l)} compact /></div>}
+                        <p className="mt-3 text-xs text-surface-500">L’agence attribue cette livraison : elle vous sera proposée si vous êtes choisi.</p>
+                      </article>
+                    ))}
+                  </>
+                )}
               </section>
             )}
 
@@ -350,19 +338,6 @@ export default function MissionsPage() {
         )}
       </div>
 
-      <OfferSheet
-        open={Boolean(offerTarget)}
-        onClose={() => setOfferTarget(null)}
-        title={currentOffer != null ? 'Modifier mon offre' : 'Proposer un tarif'}
-        description={offerTarget?.title}
-        currentOffer={currentOffer}
-        loading={offerLoading}
-        onSubmit={submitOffer}
-        onWithdraw={removeOffer}
-        note={offerTarget?.kind === 'marketplace'
-          ? "Le paiement de la course se fait hors application. Une première offre acceptée démarre votre abonnement marketplace."
-          : 'Paiement en espèces à la clôture de la mission. Vous ne pouvez avoir qu\'une mission active à la fois.'}
-      />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import marketplaceReducer from './slices/marketplaceSlice';
 import earningsReducer from './slices/earningsSlice';
 import abonnementReducer from './slices/abonnementSlice';
 import notificationsReducer from './slices/notificationsSlice';
+import { setDefaultCurrency } from '../utils/format';
 
 export const store = configureStore({
   reducer: {
@@ -20,3 +21,14 @@ export const store = configureStore({
     serializableCheck: { ignoredActionPaths: ['meta.arg'] },
   }),
 });
+
+// Devise de l'utilisateur (`user.devise`) -> devise par defaut de formatPrice.
+let lastDevise;
+const syncCurrency = () => {
+  const devise = store.getState().auth.user?.devise;
+  if (devise === lastDevise) return;
+  lastDevise = devise;
+  setDefaultCurrency(devise);
+};
+syncCurrency();
+store.subscribe(syncCurrency);

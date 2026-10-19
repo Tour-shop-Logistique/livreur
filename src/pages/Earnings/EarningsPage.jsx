@@ -16,10 +16,11 @@ import StatusBadge from '../../components/missions/StatusBadge';
 import {
   fetchBalance, fetchEarningsHistory, fetchMarketplaceSolde, requestWithdrawal,
 } from '../../store/slices/earningsSlice';
-import { formatPrice, formatDateTime } from '../../utils/format';
+import { formatPrice, formatDateTime, currencyLabel } from '../../utils/format';
 import marketplaceService from '../../services/marketplaceService';
 import { apiErrorMessage } from '../../services/api';
 import ButtonLabel from '../../components/common/ButtonLabel';
+import logoMark from '../../assets/logo_mark.png';
 
 // Solde reel des missions d'expedition (PARCOURS_LIVREUR_API.md §4.7), historique
 // pagine, + solde marketplace informatif (MARKETPLACE_ET_ABONNEMENT_API.md §7.9).
@@ -56,7 +57,7 @@ function WithdrawSheet({ open, onClose, solde, loading, onSubmit }) {
               className={`input-field tabular pr-16 text-xl font-semibold ${error ? 'input-error' : ''}`}
               value={montant} onChange={(e) => { setMontant(e.target.value); setError(null); }} autoFocus
             />
-            <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm font-medium text-surface-400">FCFA</span>
+            <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm font-medium text-surface-400">{currencyLabel()}</span>
           </div>
         </FormField>
         {solde > 0 && (
@@ -181,25 +182,30 @@ export default function EarningsPage() {
 
       <div className="page-container space-y-5 py-4">
         {/* Solde */}
-        <section className="card p-5">
-          <div className="flex items-center gap-2 text-sm font-medium text-surface-500">
-            <span className="icon-tile h-8 w-8 bg-success-50 text-success-600"><Wallet size={16} aria-hidden="true" /></span>
-            Solde disponible
+        {/* Carte solde navy, filigrane de la plume (design "Plume"). */}
+        <section aria-labelledby="solde-titre" className="relative overflow-hidden rounded-3xl bg-navy-900 p-5 text-white">
+          <img src={logoMark} alt="" aria-hidden="true" className="pointer-events-none absolute -right-4 -top-2 h-44 w-auto opacity-[0.18]" />
+          <div className="relative">
+            <p id="solde-titre" className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.06em] text-navy-300">
+              <Wallet size={15} aria-hidden="true" /> Solde disponible
+            </p>
+            <p className="tabular mt-1 font-heading text-[2.375rem] font-extrabold leading-tight tracking-tight">
+              {solde != null ? formatPrice(solde, '') : '—'} <span className="font-sans text-base font-semibold text-navy-200">{currencyLabel()}</span>
+            </p>
           </div>
-          <p className="tabular mt-2 font-heading text-3xl font-bold text-surface-900">{solde != null ? formatPrice(solde) : '—'}</p>
-          <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-xl bg-surface-50 p-3">
-              <dt className="text-xs text-surface-500">Gains cumulés</dt>
-              <dd className="tabular font-semibold text-surface-900">{formatPrice(totalCredits)}</dd>
+          <dl className="relative mt-4 grid grid-cols-2 gap-2.5 text-sm">
+            <div className="rounded-xl bg-white/[0.08] px-3 py-2.5">
+              <dt className="text-xs text-navy-200">Gains cumulés</dt>
+              <dd className="tabular font-heading text-base font-bold text-accent-300">+ {formatPrice(totalCredits, '')}</dd>
             </div>
-            <div className="rounded-xl bg-surface-50 p-3">
-              <dt className="text-xs text-surface-500">Retraits en attente</dt>
-              <dd className="tabular font-semibold text-surface-900">{formatPrice(pendingWithdrawals)}</dd>
+            <div className="rounded-xl bg-white/[0.08] px-3 py-2.5">
+              <dt className="text-xs text-navy-200">Retraits en attente</dt>
+              <dd className="tabular font-heading text-base font-bold">{formatPrice(pendingWithdrawals, '')}</dd>
             </div>
           </dl>
           <button
             type="button"
-            className="btn-primary mt-4 w-full"
+            className="btn-accent relative mt-4 w-full text-base shadow-none"
             onClick={() => setSheetOpen(true)}
             disabled={!solde || solde <= 0}
           >
@@ -239,7 +245,7 @@ export default function EarningsPage() {
                 const statut = RETRAIT_STATUT[h.detail?.statut];
                 return (
                   <li key={h.detail?.id || i} className="flex items-center gap-3 p-4">
-                    <span className={`icon-tile h-10 w-10 ${credit ? 'bg-success-50 text-success-600' : 'bg-surface-100 text-surface-600'}`}>
+                    <span className={`icon-tile h-10 w-10 ${credit ? 'bg-accent-50 text-accent-700' : 'bg-navy-50 text-navy-700'}`}>
                       {credit ? <ArrowDownLeft size={18} aria-hidden="true" /> : <ArrowUpRight size={18} aria-hidden="true" />}
                     </span>
                     <div className="min-w-0 flex-1">

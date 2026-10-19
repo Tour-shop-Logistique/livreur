@@ -114,7 +114,7 @@ export default function MarketplaceDetailPage() {
     setProposalError(null);
     const result = await dispatch(refuseMarketplaceProposal({ id: livraison.id, motif }));
     if (refuseMarketplaceProposal.fulfilled.match(result)) {
-      toast.message('Livraison refusée', { description: 'Le vendeur va choisir un autre mode de livraison.' });
+      toast.message('Livraison refusée', { description: 'Le vendeur va désigner un autre livreur.' });
       navigate(`${ROUTES.MISSIONS}?onglet=marketplace`, { replace: true });
       return true;
     }
@@ -206,7 +206,7 @@ export default function MarketplaceDetailPage() {
 
         {refused && (
           <Callout tone="neutral" icon={CircleX} title={statut === 'expiree' ? 'Proposition expirée' : 'Livraison refusée'}>
-            Le vendeur peut choisir un autre mode de livraison.
+            Le vendeur peut désigner un autre livreur.
           </Callout>
         )}
 

@@ -3,7 +3,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
-  SearchX, CircleCheckBig, Ban, Package, Banknote, KeyRound, Zap, MessageSquareText, CircleX, Wallet,
+  SearchX, CircleCheckBig, Ban, Package, Banknote, KeyRound, Zap, MessageSquareText, CircleX, Wallet, Bike,
+  Route as RouteIcon,
 } from 'lucide-react';
 import ButtonLabel from '../../components/common/ButtonLabel';
 import useAcceptExpress from '../../hooks/useAcceptExpress';
@@ -71,6 +72,15 @@ const SUCCESS_COPY = {
   confirmAgencyDrop: 'Mission terminée. Votre solde a été crédité.',
   startDelivery: 'Livraison démarrée. Bonne route !',
   validateDelivery: 'Colis livré. Votre solde a été crédité.',
+};
+
+// Distance qui a fixe le tarif : portee par la mission, sinon par l'expedition
+// (`distance_domicile_agence` pour un enlevement, `distance_livraison_agence`
+// pour une livraison — api-enlevement-livraison-client.md).
+const missionDistance = (m) => {
+  const exp = m?.expedition || {};
+  const v = m?.distance_km ?? (m?.type === 'enlevement' ? exp.distance_domicile_agence : exp.distance_livraison_agence);
+  return v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v);
 };
 
 function InfoRow({ icon, label, value }) {
@@ -240,6 +250,12 @@ export default function MissionDetailPage() {
             <RouteLine from={route.from} to={route.to} active={nextStop} />
           </div>
           <div className="divider mt-4 divide-y divide-surface-100">
+            {/* Détail du tarif : mode, véhicule et distance qui fixent le prix. */}
+            <InfoRow icon={Zap} label="Tarif" value={mission.mode === 'express' ? 'Express (standard majoré)' : 'Standard (grille de l’agence)'} />
+            {mission.type_vehicule && <InfoRow icon={Bike} label="Véhicule" value={mission.type_vehicule === 'voiture' ? 'Voiture' : 'Moto'} />}
+            {missionDistance(mission) != null && (
+              <InfoRow icon={RouteIcon} label={isPickup ? 'Distance expéditeur → agence' : 'Distance agence → destinataire'} value={`${Number(missionDistance(mission)).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} km`} />
+            )}
             <InfoRow icon={Banknote} label="Payé par" value={missionPayerLabel(mission)} />
             <InfoRow icon={Wallet} label="Votre solde" value={mission.statut_paiement === 'paye' ? 'Crédité' : 'Crédité à la clôture'} />
             {mission.assignee_le && <InfoRow icon={Package} label="Assignée" value={formatDateTime(mission.assignee_le)} />}

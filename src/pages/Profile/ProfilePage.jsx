@@ -19,6 +19,7 @@ import {
 } from '../../store/slices/authSlice';
 import usePushSubscription from '../../hooks/usePushSubscription';
 import { ROUTES } from '../../routes';
+import { digitsOnly } from '../../utils/digits';
 import { fullName, initials, formatDate } from '../../utils/format';
 import ButtonLabel from '../../components/common/ButtonLabel';
 
@@ -67,7 +68,6 @@ function VehicleSheet({ open, onClose, livreur }) {
         typeVehicule: livreur?.type_vehicule || 'moto',
         numeroVehicule: livreur?.numero_vehicule || '',
         permisDeConduire: livreur?.permis_de_conduire || '',
-        zoneDeLivraisonKm: livreur?.zone_de_livraison_km ?? '',
         ville: livreur?.ville || '',
       });
     }
@@ -102,9 +102,6 @@ function VehicleSheet({ open, onClose, livreur }) {
         </FormField>
         <FormField label="Numéro de permis" htmlFor="v-permis" error={errors?.permis_de_conduire?.[0]}>
           <input id="v-permis" className="input-field uppercase" value={form.permisDeConduire || ''} onChange={set('permisDeConduire')} />
-        </FormField>
-        <FormField label="Rayon d'intervention (km)" htmlFor="v-zone" error={errors?.zone_de_livraison_km?.[0]}>
-          <input id="v-zone" type="number" min="0" inputMode="numeric" className="input-field" value={form.zoneDeLivraisonKm} onChange={set('zoneDeLivraisonKm')} />
         </FormField>
         {errors?.general && <p className="field-error">{errors.general[0]}</p>}
         <button type="submit" aria-busy={loading} className="btn-primary btn-lg w-full" disabled={loading}><ButtonLabel loading={loading} loadingLabel="Enregistrement…">Enregistrer</ButtonLabel></button>
@@ -157,7 +154,7 @@ function InfoSheet({ open, onClose, user }) {
           </FormField>
         </div>
         <FormField label="Téléphone" htmlFor="p-tel" error={errors?.telephone?.[0]}>
-          <input id="p-tel" type="tel" inputMode="numeric" pattern="[0-9]*" className="input-field" value={form.telephone || ''} onChange={(e) => set('telephone')({ target: { value: e.target.value.replace(/\D/g, '') } })} required />
+          <input id="p-tel" type="tel" inputMode="numeric" pattern="[0-9]*" className="input-field" value={form.telephone || ''} onChange={(e) => set('telephone')({ target: { value: digitsOnly(e.target.value) } })} required />
         </FormField>
         <FormField label="Email" htmlFor="p-email" error={errors?.email?.[0]} hint="Une nouvelle vérification sera demandée si vous le modifiez.">
           <input id="p-email" type="email" inputMode="email" className="input-field" value={form.email || ''} onChange={set('email')} required />
@@ -289,7 +286,7 @@ export default function ProfilePage() {
             <Row
               icon={VehicleIcon}
               label="Mon véhicule"
-              value={livreur ? [livreur.type_vehicule === 'voiture' ? 'Voiture' : 'Moto', livreur.numero_vehicule, livreur.ville, livreur.zone_de_livraison_km ? `${livreur.zone_de_livraison_km} km` : null].filter(Boolean).join(' · ') : 'Non renseigné'}
+              value={livreur ? [livreur.type_vehicule === 'voiture' ? 'Voiture' : 'Moto', livreur.numero_vehicule, livreur.ville].filter(Boolean).join(' · ') : 'Non renseigné'}
               onClick={() => setSheet('vehicle')}
             />
             <Row icon={ShieldCheck} label="Abonnement marketplace" value="Statut et échéances" to={ROUTES.ABONNEMENT} />

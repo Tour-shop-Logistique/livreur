@@ -14,8 +14,7 @@ const fetchMissions = async ({ statut, page = 1 } = {}) => {
 
 // GET /expedition/livreur/missions-disponibles — missions EXPRESS ouvertes au reseau,
 // avec leur prix impose `montant_fixe` (= `montant_final`), filtrees par defaut sur la `ville` du profil (§4.5). `ville` la remplace (livreur
-// en deplacement) ; `lat`/`lng` ajoutent `distance_km`, filtrent sur
-// `zone_de_livraison_km` et trient par distance.
+// en deplacement) ; `lat`/`lng` ajoutent `distance_km` et trient par distance.
 const fetchAvailableMissions = async ({ ville, lat, lng } = {}) => {
   const params = {};
   if (ville) params.ville = ville;

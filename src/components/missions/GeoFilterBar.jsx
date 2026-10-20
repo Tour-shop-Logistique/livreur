@@ -11,7 +11,7 @@ import { fetchMarketplaceAvailable } from '../../store/slices/marketplaceSlice';
 // Filtre geographique des listes "disponibles" (PARCOURS §4.5, MARKETPLACE §7.1),
 // commun aux missions express et aux livraisons marketplace :
 //  - Ma ville    : aucune option, l'API filtre sur la `ville` du profil
-//  - Pres de moi : latitude/longitude -> `distance_km`, rayon du profil, tri par distance
+//  - Pres de moi : latitude/longitude -> `distance_km`, tri par distance
 //  - Autre ville : parametre `ville` (livreur en deplacement), memorise sur l'appareil
 export default function GeoFilterBar() {
   const dispatch = useDispatch();

@@ -1,13 +1,13 @@
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { toast } from 'sonner';
 import { CheckCircle2, Circle, Clock, XCircle, ChevronRight } from 'lucide-react';
-import usePushSubscription from '../../hooks/usePushSubscription';
 import { ROUTES } from '../../routes';
 
 // "Pret a livrer" : ce qui conditionne la reception des missions, a partir des
-// seules donnees de l'API (fiche Livreur §3, push §7.3). La disponibilite a sa
-// propre carte (AvailabilitySwitch). La carte disparait quand tout est en ordre.
+// seules donnees de l'API (fiche Livreur §3). La disponibilite a sa propre carte
+// (AvailabilitySwitch) et les notifications push se reglent dans le profil :
+// elles ne maintiennent plus cette carte affichee. Elle disparait quand tout
+// est en ordre.
 const KYC = {
   valide: { done: true, hint: 'Documents vérifiés' },
   en_attente: { done: false, hint: 'Vérification en cours', icon: Clock, tone: 'text-warning-600' },
@@ -33,10 +33,9 @@ function Row({ done, label, hint, pendingIcon, pendingTone, action }) {
 
 export default function ReadinessCard() {
   const livreur = useSelector((state) => state.auth.user?.livreur);
-  const push = usePushSubscription();
 
   // Fiche Livreur pas encore chargee (GET /livreur/profil) : rien a afficher.
-  if (!livreur || !push.ready) return null;
+  if (!livreur) return null;
 
   const kyc = KYC[livreur.statut_validation] || KYC.en_attente;
   const vehicleDone = Boolean(livreur.type_vehicule && livreur.numero_vehicule);
@@ -68,25 +67,6 @@ export default function ReadinessCard() {
       ),
     },
   ];
-
-  if (push.supported) {
-    const enablePush = async () => {
-      const res = await push.toggle();
-      if (res.ok) toast.success('Notifications push activées.');
-      else toast.error(res.message || "Impossible d'activer les notifications.");
-    };
-    items.push({
-      key: 'push',
-      done: push.enabled,
-      label: 'Notifications push',
-      hint: push.enabled ? 'Activées sur cet appareil' : 'Soyez alerté même app fermée',
-      action: (
-        <button type="button" className="btn-secondary btn-sm shrink-0" onClick={enablePush} disabled={push.loading} aria-busy={push.loading}>
-          Activer
-        </button>
-      ),
-    });
-  }
 
   const doneCount = items.filter((i) => i.done).length;
   if (doneCount === items.length) return null;

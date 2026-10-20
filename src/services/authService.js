@@ -44,7 +44,6 @@ const registerLivreur = async (form) => {
     type_vehicule: form.typeVehicule,
     numero_vehicule: form.numeroVehicule,
     permis_de_conduire: form.permisDeConduire,
-    zone_de_livraison_km: form.zoneDeLivraisonKm === '' ? undefined : Number(form.zoneDeLivraisonKm),
     // Ville d'exercice (requise, communes du pays) : filtre les missions/livraisons disponibles.
     ville: form.ville?.trim(),
   });
@@ -88,7 +87,7 @@ if (import.meta.env.DEV) {
     const user = {
       id: 'dev-bypass', nom: 'Demo', prenoms: 'Livreur', email: 'demo@tourshop.local',
       telephone: '+2250700000000', type: 'livreur', actif: true, disponible: true, solde_livreur: '0',
-      livreur: { type_vehicule: 'moto', statut_validation: 'valide', numero_vehicule: 'AB-1234-CI', zone_de_livraison_km: 15 },
+      livreur: { type_vehicule: 'moto', statut_validation: 'valide', numero_vehicule: 'AB-1234-CI' },
     };
     persistSession({ user, token: DEV_BYPASS_TOKEN });
     return user;
@@ -117,14 +116,13 @@ const fetchLivreurProfile = async () => {
 // PUT /livreur/vehicule — champs optionnels, ne touche pas au statut KYC.
 // `ville` = ville d'exercice (filtrage geographique des missions disponibles).
 const updateVehicle = async ({
-  typeVehicule, numeroVehicule, permisDeConduire, zoneDeLivraisonKm, ville,
+  typeVehicule, numeroVehicule, permisDeConduire, ville,
 }) => {
   const payload = {};
   if (ville !== undefined && ville.trim() !== '') payload.ville = ville.trim();
   if (typeVehicule !== undefined) payload.type_vehicule = typeVehicule;
   if (numeroVehicule !== undefined) payload.numero_vehicule = numeroVehicule;
   if (permisDeConduire !== undefined) payload.permis_de_conduire = permisDeConduire;
-  if (zoneDeLivraisonKm !== undefined && zoneDeLivraisonKm !== '') payload.zone_de_livraison_km = Number(zoneDeLivraisonKm);
   const { data } = await api.put('/livreur/vehicule', payload);
   return data;
 };

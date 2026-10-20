@@ -25,7 +25,7 @@ import useCommunes from '../../hooks/useCommunes';
 const STEPS = [
   { key: 'identite', label: 'Identité', fields: ['nom', 'prenoms', 'telephone', 'indicatif_telephone', 'whatsapp_number', 'email', 'code_pays', 'ville'] },
   { key: 'piece', label: 'Pièce', fields: ['type_piece_identite', 'numero_piece_identite', 'piece_identite', 'photo_profil'] },
-  { key: 'vehicule', label: 'Véhicule', fields: ['type_vehicule', 'numero_vehicule', 'permis_de_conduire', 'zone_de_livraison_km'] },
+  { key: 'vehicule', label: 'Véhicule', fields: ['type_vehicule', 'numero_vehicule', 'permis_de_conduire'] },
   { key: 'securite', label: 'Sécurité', fields: ['password', 'password_confirmation'] },
 ];
 
@@ -74,7 +74,7 @@ export default function RegisterPage() {
   const [form, setForm] = useState({
     nom: '', prenoms: '', codePays: DEFAULT_COUNTRY.code, telephone: '', whatsappNumber: '', whatsappCountry: DEFAULT_COUNTRY.code, email: '',
     typePieceIdentite: 'cni', numeroPieceIdentite: '', pieceIdentite: null, photoProfil: null,
-    ville: '', typeVehicule: 'moto', numeroVehicule: '', permisDeConduire: '', zoneDeLivraisonKm: '',
+    ville: '', typeVehicule: 'moto', numeroVehicule: '', permisDeConduire: '',
     password: '', passwordConfirmation: '', acceptTerms: false,
   });
   const { communes, status: communesStatus } = useCommunes(form.codePays);
@@ -109,7 +109,6 @@ export default function RegisterPage() {
     if (index === 2) {
       if (!form.numeroVehicule.trim()) e.numeroVehicule = "L'immatriculation du véhicule est requise.";
       if (!form.permisDeConduire.trim()) e.permisDeConduire = 'Le numéro de permis de conduire est requis.';
-      if (form.zoneDeLivraisonKm !== '' && !(Number(form.zoneDeLivraisonKm) >= 0)) e.zoneDeLivraisonKm = 'Rayon invalide.';
     }
     if (index === 3) {
       if (form.password.length < 8) e.password = '8 caractères minimum.';
@@ -143,7 +142,6 @@ export default function RegisterPage() {
       telephone,
       indicatifTelephone: country.indicatif,
       whatsappNumber: whatsappFull(),
-      zoneDeLivraisonKm: form.zoneDeLivraisonKm,
       email,
       password: form.password,
       passwordConfirmation: form.passwordConfirmation,
@@ -269,9 +267,6 @@ export default function RegisterPage() {
             </FormField>
             <FormField label="Numéro de permis de conduire" htmlFor="permis" error={err('permisDeConduire', 'permis_de_conduire')}>
               <input id="permis" maxLength={100} className={`input-field uppercase ${err('permisDeConduire', 'permis_de_conduire') ? 'input-error' : ''}`} value={form.permisDeConduire} onChange={setInput('permisDeConduire')} />
-            </FormField>
-            <FormField label="Rayon de livraison (km)" htmlFor="zone" optional error={err('zoneDeLivraisonKm', 'zone_de_livraison_km')} hint="Utilisé pour filtrer les missions près de vous.">
-              <input id="zone" type="number" min="0" step="1" inputMode="numeric" className="input-field" value={form.zoneDeLivraisonKm} onChange={setInput('zoneDeLivraisonKm')} />
             </FormField>
           </div>
         )}

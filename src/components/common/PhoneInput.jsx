@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import CountrySelectSheet from './CountrySelectSheet';
 import { findCountry } from '../../utils/countries';
 import { getPhoneLengthHint } from '../../utils/phone';
+import { digitsOnly } from '../../utils/digits';
 
 // Indicatif pays (liste complete de client-app, avec recherche) + numero national.
 export default function PhoneInput({ id, country, onCountryChange, value, onChange, invalid = false, lockCountry = false, showHint = true }) {
@@ -35,7 +36,7 @@ export default function PhoneInput({ id, country, onCountryChange, value, onChan
           placeholder="07 00 00 00 00"
           className="min-w-0 flex-1 bg-transparent px-3 py-3 text-sm text-surface-900 placeholder:text-surface-400 focus:outline-none"
           value={value}
-          onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))}
+          onChange={(e) => onChange(digitsOnly(e.target.value))}
         />
       </div>
       {hint && <p className="mt-1 text-xs text-surface-500">Numéro national : {hint}</p>}

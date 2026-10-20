@@ -17,7 +17,7 @@ const proofFields = ({ photo, signature, lat, lng } = {}) => ({
 // GET /marketplace/livreur/livraisons-disponibles — modes `express` (a accepter,
 // prix `montant_final` impose) et `standard` (assigne par le backoffice), statut
 // en_attente, filtrees par ville du profil. `ville` remplace la ville du profil ; `lat`/`lng`
-// ajoutent `distance_km` et filtrent sur `zone_de_livraison_km` (§7.1).
+// ajoutent `distance_km` et trient par distance (§7.1).
 const fetchAvailable = async ({ ville, lat, lng } = {}) => {
   const params = {};
   if (ville) params.ville = ville;

@@ -128,6 +128,24 @@ export const updateProfile = createAsyncThunk(
   }
 );
 
+// Changement de pays (séparé de updateProfile, voir authService.updateCountry).
+// `refused` : le serveur n'autorise pas (encore) ce changement pour un livreur.
+export const updateCountry = createAsyncThunk(
+  'auth/updateCountry',
+  async (codePays, { rejectWithValue }) => {
+    try {
+      const data = await authService.updateCountry(codePays);
+      return { user: data?.user, codePays: String(codePays).toUpperCase() };
+    } catch (err) {
+      const status = err.response?.status;
+      return rejectWithValue({
+        ...failure(err, 'Impossible de changer de pays.'),
+        refused: status === 422 || status === 403,
+      });
+    }
+  }
+);
+
 export const changePassword = createAsyncThunk(
   'auth/changePassword',
   async (form, { rejectWithValue }) => {
@@ -315,6 +333,14 @@ const authSlice = createSlice({
       .addCase(updateProfile.fulfilled, (state, action) => {
         if (state.user && action.payload.user) {
           state.user = { ...state.user, ...action.payload.user, livreur: state.user.livreur };
+          authService.persistUser(state.user);
+        }
+      })
+      .addCase(updateCountry.fulfilled, (state, action) => {
+        if (state.user) {
+          state.user = {
+            ...state.user, ...(action.payload.user || {}), code_pays: action.payload.codePays, livreur: state.user.livreur,
+          };
           authService.persistUser(state.user);
         }
       })

@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
-  Download, Share, Check, Smartphone, Volume2, LogOut, Bike, Car, ChevronRight, UserRound, Lock, BellRing, ShieldCheck, BadgeCheck, Hourglass, XCircle, IdCard, Mail, Phone,
+  Download, Share, Check, Smartphone, Volume2, Globe2, ChevronsUpDown, LogOut, Bike, Car, ChevronRight, UserRound, Lock, BellRing, ShieldCheck, BadgeCheck, Hourglass, XCircle, IdCard, Mail, Phone,
 } from 'lucide-react';
 import TopBar from '../../components/common/TopBar';
 import AvailabilitySwitch from '../../components/common/AvailabilitySwitch';
@@ -16,7 +16,7 @@ import Switch from '../../components/common/Switch';
 import ChoiceGroup from '../../components/common/ChoiceGroup';
 import StatusBadge from '../../components/missions/StatusBadge';
 import {
-  logout, updateVehicle, updateProfile, changePassword,
+  logout, updateVehicle, updateProfile, updateCountry, changePassword,
 } from '../../store/slices/authSlice';
 import usePushSubscription from '../../hooks/usePushSubscription';
 import usePwaInstall from '../../hooks/usePwaInstall';
@@ -24,6 +24,10 @@ import { ROUTES } from '../../routes';
 import { digitsOnly } from '../../utils/digits';
 import { fullName, initials, formatDate } from '../../utils/format';
 import ButtonLabel from '../../components/common/ButtonLabel';
+import CountrySelectSheet from '../../components/common/CountrySelectSheet';
+import { findCountry, getCountryName } from '../../utils/countries';
+import { savePreferredCity } from '../../utils/cityFilter';
+import { refreshAll } from '../../hooks/useRealtime';
 
 const KYC = {
   valide: { label: 'Identité vérifiée', tone: 'success', icon: BadgeCheck },
@@ -117,6 +121,7 @@ function InfoSheet({ open, onClose, user }) {
   const [form, setForm] = useState({});
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState(null);
+  const [countryOpen, setCountryOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -124,6 +129,7 @@ function InfoSheet({ open, onClose, user }) {
       setForm({
         nom: user?.nom || '', prenoms: user?.prenoms || '', telephone: user?.telephone || '',
         indicatifTelephone: user?.indicatif_telephone || '', email: user?.email || '',
+        codePays: user?.code_pays || '',
       });
     }
   }, [open, user]);
@@ -134,14 +140,38 @@ function InfoSheet({ open, onClose, user }) {
     e.preventDefault();
     setLoading(true);
     const emailChanged = form.email.trim() !== (user?.email || '');
-    const result = await dispatch(updateProfile({ ...form, email: form.email.trim() }));
-    setLoading(false);
-    if (updateProfile.fulfilled.match(result)) {
-      toast.success(emailChanged ? 'Profil mis à jour. Vérifiez votre nouvelle adresse email.' : 'Profil mis à jour.');
-      onClose();
-    } else {
+    const countryChanged = Boolean(form.codePays) && form.codePays !== (user?.code_pays || '');
+    const { codePays, ...identity } = form;
+    const result = await dispatch(updateProfile({ ...identity, email: form.email.trim() }));
+    if (!updateProfile.fulfilled.match(result)) {
+      setLoading(false);
       setErrors(result.payload?.fieldErrors || { general: [result.payload?.message] });
+      return;
     }
+
+    // Pays : appel séparé, pour qu'un refus du serveur ne perde pas le reste.
+    if (countryChanged) {
+      const res = await dispatch(updateCountry(codePays));
+      setLoading(false);
+      if (updateCountry.fulfilled.match(res)) {
+        savePreferredCity(''); // la ville d'exercice appartenait à l'ancien pays
+        refreshAll(dispatch);
+        toast.success(`Pays mis à jour : ${getCountryName(codePays)}. Vérifiez votre ville d’exercice.`);
+      } else {
+        toast.warning(
+          res.payload?.refused
+            ? 'Vos informations sont enregistrées, mais le changement de pays n’est pas autorisé pour le moment. Contactez TourShop.'
+            : (res.payload?.message || 'Vos informations sont enregistrées, mais le pays n’a pas pu être modifié.'),
+          { duration: 9000 }
+        );
+      }
+      onClose();
+      return;
+    }
+
+    setLoading(false);
+    toast.success(emailChanged ? 'Profil mis à jour. Vérifiez votre nouvelle adresse email.' : 'Profil mis à jour.');
+    onClose();
   };
 
   return (
@@ -155,6 +185,20 @@ function InfoSheet({ open, onClose, user }) {
             <input id="p-prenoms" className="input-field" value={form.prenoms || ''} onChange={set('prenoms')} />
           </FormField>
         </div>
+        <FormField label="Pays" htmlFor="p-pays" error={errors?.code_pays?.[0]} hint={form.codePays && form.codePays !== (user?.code_pays || '') ? 'Le pays détermine les missions et le service qui vous sont rattachés.' : undefined}>
+          <button
+            id="p-pays"
+            type="button"
+            onClick={() => setCountryOpen(true)}
+            className="input-field flex items-center justify-between gap-2 text-left"
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <span aria-hidden="true">{form.codePays ? findCountry(form.codePays).flag : ''}</span>
+              <span className="truncate">{form.codePays ? getCountryName(form.codePays) : 'Choisir un pays'}</span>
+            </span>
+            <ChevronsUpDown size={16} className="shrink-0 text-surface-400" aria-hidden="true" />
+          </button>
+        </FormField>
         <FormField label="Téléphone" htmlFor="p-tel" error={errors?.telephone?.[0]}>
           <input id="p-tel" type="tel" inputMode="numeric" pattern="[0-9]*" className="input-field" value={form.telephone || ''} onChange={(e) => set('telephone')({ target: { value: digitsOnly(e.target.value) } })} required />
         </FormField>
@@ -164,6 +208,13 @@ function InfoSheet({ open, onClose, user }) {
         {errors?.general && <p className="field-error">{errors.general[0]}</p>}
         <button type="submit" aria-busy={loading} className="btn-primary btn-lg w-full" disabled={loading}><ButtonLabel loading={loading} loadingLabel="Enregistrement…">Enregistrer</ButtonLabel></button>
       </form>
+      <CountrySelectSheet
+        open={countryOpen}
+        onClose={() => setCountryOpen(false)}
+        currentCode={form.codePays}
+        title="Votre pays"
+        onSelect={(c) => setForm((f) => ({ ...f, codePays: c.code }))}
+      />
     </BottomSheet>
   );
 }
@@ -319,6 +370,7 @@ export default function ProfilePage() {
           </div>
           <dl className="mt-4 space-y-2 text-sm">
             {user?.telephone && <div className="flex items-center gap-2 text-surface-600"><Phone size={15} className="text-surface-400" aria-hidden="true" /><span className="tabular">{user.telephone}</span></div>}
+            {user?.code_pays && <div className="flex items-center gap-2 text-surface-600"><Globe2 size={15} className="text-surface-400" aria-hidden="true" /><span>{findCountry(user.code_pays).flag} {getCountryName(user.code_pays)}</span></div>}
             {user?.email && <div className="flex items-center gap-2 text-surface-600"><Mail size={15} className="text-surface-400" aria-hidden="true" /><span className="truncate">{user.email}</span></div>}
             {livreur?.nom_piece_identite && (
               <div className="flex items-center gap-2 text-surface-600">

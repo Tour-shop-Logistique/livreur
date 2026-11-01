@@ -135,6 +135,15 @@ const updateProfile = async ({ nom, prenoms, telephone, indicatifTelephone, emai
   return data;
 };
 
+// PUT /profile/update { code_pays } — changement du pays du livreur. Envoye A PART
+// des autres champs : la doc (PARCOURS_LIVREUR_API.md §profil) l'interdit encore
+// pour un livreur (422 « The code pays field is prohibited. »), et ce refus ne doit
+// pas empecher l'enregistrement du nom, du telephone et de l'email.
+const updateCountry = async (codePays) => {
+  const { data } = await api.put('/profile/update', { code_pays: String(codePays).toUpperCase() });
+  return data;
+};
+
 // PUT /profile/change-password — revoque TOUS les tokens (deconnexion forcee).
 const changePassword = async ({ currentPassword, password, passwordConfirmation }) => {
   const { data } = await api.put('/profile/change-password', {
@@ -201,6 +210,7 @@ const authService = {
   clearSession,
   startDevBypass,
   isDevBypassToken,
+  updateCountry,
 };
 
 export default authService;

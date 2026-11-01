@@ -10,6 +10,13 @@ import { fetchBalance, fetchMarketplaceSolde } from '../store/slices/earningsSli
 import { fetchAbonnementStatus } from '../store/slices/abonnementSlice';
 import { fetchServerNotifications, resetServerNotifications } from '../store/slices/notificationsSlice';
 import { fetchProfile } from '../store/slices/authSlice';
+import { playNotificationSound } from '../utils/notificationSound';
+
+// Push d'une mission / livraison a prendre ou a accepter : sonnerie forte.
+const isUrgentPush = (p = {}) => {
+  const text = `${p.title || ''} ${p.body || ''} ${p.data?.type || ''}`.toLowerCase();
+  return /(mission|livraison|propos)/.test(text) && !/(abonnement|retrait|inscription)/.test(text);
+};
 
 // Orchestrateur temps reel, monte une fois dans App :
 //  1. Connexion Echo (Reverb) des que le livreur est authentifie, fermeture a
@@ -99,6 +106,9 @@ export default function useRealtime() {
     // est deja persistee cote serveur, on recharge l'historique et les donnees.
     const onSwMessage = (event) => {
       if (event.data?.type !== 'push') return;
+      // Sonnerie aussi pour les push qui n'ont pas d'evenement WebSocket
+      // (abonnement, KYC, retrait...). Anti-doublon gere par le module.
+      playNotificationSound(isUrgentPush(event.data.payload) ? 'urgent' : 'default');
       dispatch(fetchServerNotifications());
       refresh(true);
     };

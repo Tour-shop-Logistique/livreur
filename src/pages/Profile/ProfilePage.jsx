@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
+import { isSoundEnabled, setSoundEnabled, previewNotificationSound } from '../../utils/notificationSound';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
-  LogOut, Bike, Car, ChevronRight, UserRound, Lock, BellRing, ShieldCheck, BadgeCheck, Hourglass, XCircle, IdCard, Mail, Phone,
+  Download, Share, Check, Smartphone, Volume2, LogOut, Bike, Car, ChevronRight, UserRound, Lock, BellRing, ShieldCheck, BadgeCheck, Hourglass, XCircle, IdCard, Mail, Phone,
 } from 'lucide-react';
 import TopBar from '../../components/common/TopBar';
 import AvailabilitySwitch from '../../components/common/AvailabilitySwitch';
@@ -18,6 +19,7 @@ import {
   logout, updateVehicle, updateProfile, changePassword,
 } from '../../store/slices/authSlice';
 import usePushSubscription from '../../hooks/usePushSubscription';
+import usePwaInstall from '../../hooks/usePwaInstall';
 import { ROUTES } from '../../routes';
 import { digitsOnly } from '../../utils/digits';
 import { fullName, initials, formatDate } from '../../utils/format';
@@ -213,6 +215,53 @@ function PasswordSheet({ open, onClose }) {
   );
 }
 
+// Installation de la PWA : toujours accessible ici, meme si le bandeau a ete
+// ferme. Sans invite native (iOS, ou navigateur qui ne l'a pas encore proposee),
+// on affiche la marche a suivre manuelle.
+function InstallRow() {
+  const { canPrompt, installed, install } = usePwaInstall();
+  const [help, setHelp] = useState(false);
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  if (installed) {
+    return (
+      <div className="flex min-h-14 items-center gap-3 px-4 py-3">
+        <span className="icon-tile h-9 w-9 bg-surface-100 text-surface-600"><Smartphone size={18} aria-hidden="true" /></span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-surface-900">Application installée</p>
+          <p className="text-xs text-surface-500">TourShop Livreur est sur votre écran d’accueil</p>
+        </div>
+        <Check size={18} className="shrink-0 text-success-700" aria-hidden="true" />
+      </div>
+    );
+  }
+
+  const onClick = async () => {
+    if (canPrompt) {
+      const outcome = await install();
+      if (outcome === 'accepted') toast.success('Installation en cours…');
+      return;
+    }
+    setHelp((v) => !v);
+  };
+
+  return (
+    <div>
+      <Row icon={Download} label="Installer l’application" value="Accès rapide depuis l’écran d’accueil" onClick={onClick} />
+      {help && (
+        <p className="mx-4 mb-3 rounded-xl bg-surface-50 p-3 text-xs text-surface-600">
+          {ios ? (
+            <>Dans Safari, appuyez sur <Share size={13} className="mx-0.5 inline align-text-bottom" /> puis sur «&nbsp;Sur l’écran d’accueil&nbsp;».</>
+          ) : (
+            <>Ouvrez le menu ⋮ du navigateur puis «&nbsp;Installer l’application&nbsp;» ou «&nbsp;Ajouter à l’écran d’accueil&nbsp;».</>
+          )}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -235,6 +284,14 @@ export default function ProfilePage() {
     await dispatch(logout());
     toast.success('Vous êtes déconnecté.');
     navigate(ROUTES.LOGIN, { replace: true });
+  };
+
+  const [sound, setSound] = useState(isSoundEnabled);
+  const toggleSound = () => {
+    const next = !sound;
+    setSoundEnabled(next);
+    setSound(next);
+    if (next) previewNotificationSound('urgent'); // apercu de la sonnerie de mission
   };
 
   const togglePush = async () => {
@@ -290,6 +347,15 @@ export default function ProfilePage() {
               onClick={() => setSheet('vehicle')}
             />
             <Row icon={ShieldCheck} label="Abonnement marketplace" value="Statut et échéances" to={ROUTES.ABONNEMENT} />
+            <InstallRow />
+            <div className="flex min-h-14 items-center gap-3 px-4 py-3">
+              <span className="icon-tile h-9 w-9 bg-surface-100 text-surface-600"><Volume2 size={18} aria-hidden="true" /></span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-surface-900">Sonnerie des notifications</p>
+                <p className="text-xs text-surface-500">Son fort à chaque mission (app ouverte)</p>
+              </div>
+              <Switch checked={sound} onChange={toggleSound} label="Sonnerie des notifications" />
+            </div>
             {push.supported && (
               <div className="flex min-h-14 items-center gap-3 px-4 py-3">
                 <span className="icon-tile h-9 w-9 bg-surface-100 text-surface-600"><BellRing size={18} aria-hidden="true" /></span>

@@ -17,6 +17,7 @@ import { fetchAbonnementStatus } from '../store/slices/abonnementSlice';
 import { pushActivity, fetchServerNotifications } from '../store/slices/notificationsSlice';
 import { isActiveMarketplace } from '../utils/missionFlow';
 import { missionCity, sameCity, loadPreferredCity } from '../utils/cityFilter';
+import { playNotificationSound } from '../utils/notificationSound';
 import { ROUTES, missionDetailPath, marketplaceDetailPath } from '../routes';
 
 // Couche pratique au-dessus de useWebSocket (meme idee que client-app) :
@@ -40,6 +41,8 @@ const EVENT_TYPES = {
 
 // Evenements doubles d'une notification push persistee : on recharge
 // l'historique serveur (GET /livreur/notifications) peu apres.
+const URGENT_SOUND = new Set(['mission.available', 'mission.proposed', 'marketplace.available', 'marketplace.proposed']);
+
 const WITH_PUSH = new Set(['mission.available', 'mission.proposed', 'mission.assigned', 'mission.closed', 'marketplace.refused']);
 
 /**
@@ -106,6 +109,12 @@ export function useRealtimeWithNotifications(options = {}) {
         setTimeout(() => busy.current.delete(key), 3000);
       }
     };
+
+    // Sonnerie : forte pour ce qui demande une reponse rapide (nouvelle mission
+    // a prendre, proposition a accepter sous 15 min), classique pour le reste.
+    if (URGENT_SOUND.has(eventType)) playNotificationSound('urgent');
+    else if (eventType === 'mission.assigned' || eventType === 'marketplace.assigned') playNotificationSound('default');
+    else if (eventType === 'marketplace.refused' && meta.action === 'expiree') playNotificationSound('alert');
 
     if (WITH_PUSH.has(eventType)) {
       once('notifications.server', async () => {

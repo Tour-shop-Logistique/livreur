@@ -7,6 +7,7 @@ import { store } from './store';
 import { sessionExpired } from './store/slices/authSlice';
 import { markBlocked } from './store/slices/abonnementSlice';
 import { setAbonnementHint, isEcheanceOverdue, isBlockedPush } from './utils/abonnementHint';
+import './hooks/usePwaInstall'; // ecoute beforeinstallprompt des le chargement
 import App from './App.jsx';
 import './index.css';
 

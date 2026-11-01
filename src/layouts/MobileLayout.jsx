@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import BottomNav from '../components/common/BottomNav';
 import DevBypassBanner from '../components/common/DevBypassBanner';
+import InstallPrompt from '../components/common/InstallPrompt';
 import NewMissionSheet from '../components/missions/NewMissionSheet';
 
 export default function MobileLayout() {
@@ -10,6 +11,7 @@ export default function MobileLayout() {
       <main className="flex-1 pb-[calc(theme(spacing.bottom-nav)+env(safe-area-inset-bottom)+1.25rem)]">
         <Outlet />
       </main>
+      <InstallPrompt />
       <BottomNav />
       {/* Hors des ecrans de detail : on n'interrompt jamais une mission en cours. */}
       <NewMissionSheet />

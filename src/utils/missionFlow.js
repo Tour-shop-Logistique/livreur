@@ -171,14 +171,6 @@ export const isActiveExpedition = (m) => m?.statut === 'assignee';
 // acceptee il est recopie dans `montant_final`.
 export const missionPrice = (m) => val(m?.montant_final) ?? val(m?.montant_fixe);
 
-// Nombre maximum de missions d'expedition que le livreur peut cumuler.
-export const MAX_ACTIVE_MISSIONS = 10;
-
-export const canTakeMoreMissions = (activeCount) => activeCount < MAX_ACTIVE_MISSIONS;
-
-// Libelle « n/10 » pour les messages (limite atteinte, compteur).
-export const missionQuotaLabel = (activeCount) => `${activeCount}/${MAX_ACTIVE_MISSIONS}`;
-
 const num = (v) => {
   const x = val(v);
   return x === null || Number.isNaN(Number(x)) ? null : Number(x);

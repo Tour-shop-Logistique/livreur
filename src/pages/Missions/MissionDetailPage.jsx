@@ -32,7 +32,7 @@ import { fetchBalance } from '../../store/slices/earningsSlice';
 import {
   expeditionPhase, expeditionAction, expeditionStepIndex, EXPEDITION_STEPS,
   MISSION_TYPE_LABEL, MISSION_MODE_LABEL, missionInstructions, missionPrice, missionPayerLabel,
-  missionFinance, canTakeMoreMissions, missionQuotaLabel,
+  missionFinance,
 } from '../../utils/missionFlow';
 import { formatPrice, formatDateTime, formatDuration } from '../../utils/format';
 import { isValidPoint } from '../../services/routingService';
@@ -157,8 +157,6 @@ export default function MissionDetailPage() {
   const isPickup = mission.type === 'enlevement';
   const busy = pendingAction === mission.id;
   const finance = missionFinance(mission);
-  const activeCount = active.items.length;
-  const quotaReached = !canTakeMoreMissions(activeCount);
   const instructions = missionInstructions(mission);
   const isProposal = phase === 'proposal';
 
@@ -341,7 +339,7 @@ export default function MissionDetailPage() {
                 const res = await acceptExpress(mission, { redirect: false });
                 if (res === 'taken') navigate(`${ROUTES.MISSIONS}?onglet=disponibles`, { replace: true });
               }}
-              disabled={!disponible || busy || quotaReached}
+              disabled={!disponible || busy}
               aria-busy={isAccepting(mission.id)}
             >
               <ButtonLabel loading={isAccepting(mission.id)} loadingLabel="Acceptation…">
@@ -349,11 +347,6 @@ export default function MissionDetailPage() {
               </ButtonLabel>
             </button>
             {!disponible && <p className="text-center text-xs text-surface-500">Passez disponible pour accepter une course.</p>}
-            {disponible && quotaReached && (
-              <p className="text-center text-xs text-surface-500">
-                Vous avez atteint {missionQuotaLabel(activeCount)} missions en cours : terminez-en une pour en accepter une autre.
-              </p>
-            )}
           </section>
         )}
 

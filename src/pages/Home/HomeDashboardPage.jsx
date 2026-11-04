@@ -19,7 +19,7 @@ import {
   expeditionAction, expeditionPhase, expeditionStepIndex, marketplaceAction, marketplaceStepIndex,
   isActiveMarketplace, isMarketplaceProposal, isProposalExpired, marketplacePickup, marketplaceDropoff,
   placeLabel, addressLine, mapsLink, EXPEDITION_STEPS, MARKETPLACE_STEPS, MISSION_TYPE_LABEL, MISSION_MODE_LABEL,
-  missionPrice, canTakeMoreMissions, missionQuotaLabel,
+  missionPrice,
 } from '../../utils/missionFlow';
 import { formatDistance } from '../../services/routingService';
 import { formatPrice, currencyLabel, fullName } from '../../utils/format';
@@ -396,7 +396,6 @@ export default function HomeDashboardPage() {
           >
             <span className="font-semibold text-navy-950">
               {plural(active.items.length - 1, 'autre mission')} en cours
-              <span className="font-normal text-surface-500"> · {missionQuotaLabel(active.items.length)}</span>
             </span>
             <ArrowRight size={16} className="text-surface-400" aria-hidden="true" />
           </Link>
@@ -409,7 +408,7 @@ export default function HomeDashboardPage() {
           <Opportunities
             express={available.items}
             marketplace={marketplaceExpress}
-            busy={!canTakeMoreMissions(active.items.length)}
+            busy={false}
           />
         ) : !hasActive && <WaitingCard />)}
       </div>

@@ -25,7 +25,7 @@ import { fetchMissionHistory } from '../../store/slices/missionsSlice';
 import { refreshMissions } from '../../hooks/useRealtime';
 import {
   MISSION_TYPE_LABEL, isMarketplaceProposal, isProposalExpired, marketplacePickup, marketplaceDropoff, placeLabel,
-  missionPrice, canTakeMoreMissions, missionQuotaLabel,
+  missionPrice,
 } from '../../utils/missionFlow';
 import { ROUTES, missionDetailPath, marketplaceDetailPath } from '../../routes';
 import { formatPrice, formatDistance } from '../../utils/format';
@@ -104,7 +104,6 @@ export default function MissionsPage() {
   const expressList = available.items;
 
   const activeCount = active.items.length + activeMarketplace.length + proposalCount;
-  const quotaReached = !canTakeMoreMissions(active.items.length);
   const tabs = [
     { key: 'encours', label: 'En cours', count: activeCount },
     { key: 'disponibles', label: 'Express', count: available.items.length },
@@ -213,13 +212,6 @@ export default function MissionsPage() {
                 Vous êtes hors ligne : passez disponible pour pouvoir accepter une course.
               </Callout>
             )}
-            {disponible && active.items.length > 0 && (
-              <Callout tone="neutral" size="sm" icon={Route}>
-                {quotaReached
-                  ? `Vous avez atteint la limite (${missionQuotaLabel(active.items.length)} missions en cours) : terminez-en une pour accepter une nouvelle course.`
-                  : `Missions en cours : ${missionQuotaLabel(active.items.length)}. Vous pouvez en cumuler jusqu'à 10.`}
-              </Callout>
-            )}
             {!available.loaded && available.status === 'loading' && <SkeletonCard />}
             {available.status === 'error' && available.items.length === 0 && <ErrorState message={available.error} onRetry={refresh} />}
             <GeoFilterBar />
@@ -236,8 +228,8 @@ export default function MissionsPage() {
                 price={missionPrice(m)}
                 meta={m.distance_km != null && <span>{formatDistance(m.distance_km)}</span>}
                 loading={isAccepting(m.id)}
-                disabled={!disponible || quotaReached || (accepting && !isAccepting(m.id))}
-                disabledReason={!disponible ? 'Passez disponible pour accepter.' : quotaReached ? 'Limite de 10 missions atteinte.' : null}
+                disabled={!disponible || (accepting && !isAccepting(m.id))}
+                disabledReason={!disponible ? 'Passez disponible pour accepter.' : null}
                 onAccept={() => acceptExpress(m)}
               />
             ))}

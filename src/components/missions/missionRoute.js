@@ -1,14 +1,29 @@
 import { contactOf, agencyOf, addressLine } from '../../utils/missionFlow';
 
-// Course express ouverte au reseau : seules les villes (ou pays) sont utiles
-// pour decider d'accepter (§4.5) — adresses completes une fois acceptee.
+const placeOf = (c) => [c?.quartier, c?.ville].filter(Boolean).join(', ');
+
+// Course express ouverte au reseau : seules les villes sont utiles pour decider
+// d'accepter (§4.5) — adresses completes une fois acceptee.
+//  - enlevement : chez l'expediteur -> AGENCE (jamais le pays de destination)
+//  - livraison  : agence d'arrivee -> destinataire
 export function expressRoute(mission) {
   const exp = mission?.expedition || {};
   const expediteur = contactOf(exp, 'expediteur');
   const destinataire = contactOf(exp, 'destinataire');
+  const agence = agencyOf(exp, mission?.type);
+  const agenceTitle = agence?.nom && agence.nom !== 'Agence TourShop'
+    ? agence.nom
+    : [agence?.nom, agence?.ville].filter(Boolean).join(' · ') || 'Agence TourShop';
+
+  if (mission?.type === 'enlevement') {
+    return {
+      from: { label: 'Récupérer', title: placeOf(expediteur) || exp.pays_depart || '—' },
+      to: { label: "Déposer à l'agence", title: agenceTitle },
+    };
+  }
   return {
-    from: { label: 'Récupérer', title: [expediteur.quartier, expediteur.ville].filter(Boolean).join(', ') || exp.pays_depart || '—' },
-    to: { label: 'Déposer', title: [destinataire.quartier, destinataire.ville].filter(Boolean).join(', ') || exp.pays_destination || '—' },
+    from: { label: 'Récupérer', title: agenceTitle },
+    to: { label: 'Livrer', title: placeOf(destinataire) || '—' },
   };
 }
 

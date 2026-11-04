@@ -171,6 +171,46 @@ export const isActiveExpedition = (m) => m?.statut === 'assignee';
 // acceptee il est recopie dans `montant_final`.
 export const missionPrice = (m) => val(m?.montant_final) ?? val(m?.montant_fixe);
 
+// Nombre maximum de missions d'expedition que le livreur peut cumuler.
+export const MAX_ACTIVE_MISSIONS = 10;
+
+export const canTakeMoreMissions = (activeCount) => activeCount < MAX_ACTIVE_MISSIONS;
+
+// Libelle « n/10 » pour les messages (limite atteinte, compteur).
+export const missionQuotaLabel = (activeCount) => `${activeCount}/${MAX_ACTIVE_MISSIONS}`;
+
+const num = (v) => {
+  const x = val(v);
+  return x === null || Number.isNaN(Number(x)) ? null : Number(x);
+};
+
+// Detail financier d'une course pour le livreur : ce qui compose son gain.
+// Seul `montant_final` / `montant_fixe` est garanti ; les composantes sont
+// affichees quand l'API les fournit (sur la mission ou l'expedition).
+// -> { total, lines: [{ key, label, value, kind }] }
+export const missionFinance = (m) => {
+  const exp = m?.expedition || {};
+  const pick = (...keys) => {
+    for (const k of keys) {
+      const v = num(m?.[k]) ?? num(exp[k]);
+      if (v !== null) return v;
+    }
+    return null;
+  };
+  const total = num(missionPrice(m));
+  const base = pick('montant_base', 'tarif_base', 'montant_standard');
+  const express = pick('majoration_express', 'supplement_express', 'montant_majoration');
+  const annexes = pick('frais_annexes', 'montant_frais_annexes');
+  const bonus = pick('bonus', 'prime');
+
+  const lines = [];
+  if (base !== null) lines.push({ key: 'base', label: 'Tarif de la course', value: base, kind: 'add' });
+  if (express !== null && express !== 0) lines.push({ key: 'express', label: 'Majoration express', value: express, kind: 'add' });
+  if (annexes !== null && annexes !== 0) lines.push({ key: 'annexes', label: 'Frais annexes', value: annexes, kind: 'add' });
+  if (bonus !== null && bonus !== 0) lines.push({ key: 'bonus', label: 'Bonus', value: bonus, kind: 'add' });
+  return { total, lines };
+};
+
 // Qui regle la course (CHANGEMENTS_APPS_CLIENT_LIVREUR §3-4). Le livreur n'a
 // rien a faire : son solde est credite automatiquement a la cloture.
 export const missionPayerLabel = (m) => {

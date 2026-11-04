@@ -4,7 +4,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   SearchX, CircleCheckBig, Ban, Package, Banknote, KeyRound, Zap, MessageSquareText, CircleX, Wallet, Bike,
-  Route as RouteIcon,
+  Route as RouteIcon, Receipt,
 } from 'lucide-react';
 import ButtonLabel from '../../components/common/ButtonLabel';
 import useAcceptExpress from '../../hooks/useAcceptExpress';
@@ -32,6 +32,7 @@ import { fetchBalance } from '../../store/slices/earningsSlice';
 import {
   expeditionPhase, expeditionAction, expeditionStepIndex, EXPEDITION_STEPS,
   MISSION_TYPE_LABEL, MISSION_MODE_LABEL, missionInstructions, missionPrice, missionPayerLabel,
+  missionFinance, canTakeMoreMissions, missionQuotaLabel,
 } from '../../utils/missionFlow';
 import { formatPrice, formatDateTime, formatDuration } from '../../utils/format';
 import { isValidPoint } from '../../services/routingService';
@@ -45,9 +46,15 @@ const PROOF_ACTIONS = ['confirmPickup', 'validateDelivery'];
 const CLOSING_ACTIONS = ['confirmAgencyDrop', 'validateDelivery'];
 
 // Arret vers lequel le livreur se rend, selon la phase (cf. missionRoute).
+// Avant l'acceptation (proposition / course express), la carte montre deja
+// l'itineraire entre la position du livreur et le lieu d'enlevement.
 const NEXT_STOP = {
-  enlevement: { start: 'from', pickup: 'from', deposit: 'to' },
-  livraison: { start: 'to', deliver: 'to' },
+  enlevement: {
+    proposal: 'from', offer: 'from', start: 'from', pickup: 'from', deposit: 'to',
+  },
+  livraison: {
+    proposal: 'from', offer: 'from', start: 'to', deliver: 'to',
+  },
 };
 
 // Libelle du curseur et consequence affichee au-dessus, pour les actions sans preuve.
@@ -104,6 +111,10 @@ export default function MissionDetailPage() {
     proposals, active, history, pendingAction,
   } = useSelector((state) => state.missions);
   const disponible = useSelector((state) => Boolean(state.auth.user?.disponible));
+  // Notification « paiement en cours » reçue pour cette mission (agence a confirmé la réception).
+  const paymentPending = useSelector((state) => state.notifications.server.items.find(
+    (n) => n.kind === 'payment_pending' && String(n.targetId) === String(id)
+  ));
   const [sheet, setSheet] = useState(null); // action key en cours de confirmation
   const [actionError, setActionError] = useState(null);
   const [proposalError, setProposalError] = useState(null);
@@ -145,7 +156,9 @@ export default function MissionDetailPage() {
   const exp = mission.expedition || {};
   const isPickup = mission.type === 'enlevement';
   const busy = pendingAction === mission.id;
-  const colis = Array.isArray(exp.colis) ? exp.colis : [];
+  const finance = missionFinance(mission);
+  const activeCount = active.items.length;
+  const quotaReached = !canTakeMoreMissions(activeCount);
   const instructions = missionInstructions(mission);
   const isProposal = phase === 'proposal';
 
@@ -226,6 +239,7 @@ export default function MissionDetailPage() {
       {hasMap && (
         <MissionMap
           variant="hero"
+          amount={missionPrice(mission)}
           stops={[
             mapOrigin && { key: 'from', kind: isPickup ? 'pickup' : 'agency', ...mapOrigin, title: route.from.title || 'Départ', detail: route.from.detail },
             mapDestination && { key: 'to', kind: isPickup ? 'agency' : 'dropoff', ...mapDestination, title: route.to.title || 'Arrivée', detail: route.to.detail },
@@ -249,22 +263,48 @@ export default function MissionDetailPage() {
           <div className="mt-4">
             <RouteLine from={route.from} to={route.to} active={nextStop} />
           </div>
-          <div className="divider mt-4 divide-y divide-surface-100">
-            {/* Détail du tarif : mode, véhicule et distance qui fixent le prix. */}
-            <InfoRow icon={Zap} label="Tarif" value={mission.mode === 'express' ? 'Express (standard majoré)' : 'Standard (grille de l’agence)'} />
+          {mission.assignee_le && (
+            <div className="divider mt-4 divide-y divide-surface-100">
+              <InfoRow icon={Package} label="Assignée" value={formatDateTime(mission.assignee_le)} />
+            </div>
+          )}
+        </div>
+
+        {/* Détail financier : ce qui compose le gain de la course. */}
+        <section className="card p-4" aria-labelledby="detail-financier">
+          <h2 id="detail-financier" className="mb-1 flex items-center gap-2 text-sm font-semibold text-surface-900">
+            <Receipt size={16} className="text-surface-400" aria-hidden="true" /> Détail financier
+          </h2>
+          <div className="divide-y divide-surface-100">
+            {finance.lines.map((l) => (
+              <InfoRow key={l.key} icon={Banknote} label={l.label} value={formatPrice(l.value)} />
+            ))}
+            <InfoRow icon={Zap} label="Mode" value={mission.mode === 'express' ? 'Express (standard majoré)' : 'Standard (grille de l’agence)'} />
             {mission.type_vehicule && <InfoRow icon={Bike} label="Véhicule" value={mission.type_vehicule === 'voiture' ? 'Voiture' : 'Moto'} />}
             {missionDistance(mission) != null && (
               <InfoRow icon={RouteIcon} label={isPickup ? 'Distance expéditeur → agence' : 'Distance agence → destinataire'} value={`${Number(missionDistance(mission)).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} km`} />
             )}
             <InfoRow icon={Banknote} label="Payé par" value={missionPayerLabel(mission)} />
-            <InfoRow icon={Wallet} label="Votre solde" value={mission.statut_paiement === 'paye' ? 'Crédité' : 'Crédité à la clôture'} />
-            {mission.assignee_le && <InfoRow icon={Package} label="Assignée" value={formatDateTime(mission.assignee_le)} />}
+            <InfoRow icon={Wallet} label="Versement" value={mission.statut_paiement === 'paye' ? 'Crédité' : 'Crédité à la clôture'} />
           </div>
-        </div>
+          <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-primary-50 px-3.5 py-3">
+            <span className="text-sm font-semibold text-primary-800">Votre gain</span>
+            <span className="tabular font-heading text-lg font-bold text-primary-900">{formatPrice(finance.total)}</span>
+          </div>
+        </section>
 
         {phase === 'done' && (
           <Callout tone="success" icon={CircleCheckBig} title="Mission terminée">
             {formatPrice(missionPrice(mission))} crédité sur votre solde livreur.
+          </Callout>
+        )}
+        {paymentPending && (
+          <Callout tone="warning" icon={Wallet} title="Paiement en cours">
+            {paymentPending.mode === 'express'
+              ? "L'agence va vous payer directement."
+              : paymentPending.mode === 'groupage'
+                ? 'Le backoffice traitera votre paiement sous peu.'
+                : 'Votre paiement est en cours de traitement.'}
           </Callout>
         )}
         {phase === 'cancelled' && <Callout tone="danger" icon={Ban} title="Cette mission a été annulée." />}
@@ -301,7 +341,7 @@ export default function MissionDetailPage() {
                 const res = await acceptExpress(mission, { redirect: false });
                 if (res === 'taken') navigate(`${ROUTES.MISSIONS}?onglet=disponibles`, { replace: true });
               }}
-              disabled={!disponible || busy || active.items.length > 0}
+              disabled={!disponible || busy || quotaReached}
               aria-busy={isAccepting(mission.id)}
             >
               <ButtonLabel loading={isAccepting(mission.id)} loadingLabel="Acceptation…">
@@ -309,7 +349,11 @@ export default function MissionDetailPage() {
               </ButtonLabel>
             </button>
             {!disponible && <p className="text-center text-xs text-surface-500">Passez disponible pour accepter une course.</p>}
-            {disponible && active.items.length > 0 && <p className="text-center text-xs text-surface-500">Terminez votre mission en cours avant d'en accepter une autre.</p>}
+            {disponible && quotaReached && (
+              <p className="text-center text-xs text-surface-500">
+                Vous avez atteint {missionQuotaLabel(activeCount)} missions en cours : terminez-en une pour en accepter une autre.
+              </p>
+            )}
           </section>
         )}
 
@@ -348,27 +392,10 @@ export default function MissionDetailPage() {
           <MissionNotes missionId={mission.id} editable={mission.statut === 'assignee'} />
         )}
 
-        {(colis.length > 0 || exp.pays_depart || exp.pays_destination) && (
-          <section className="card p-4">
-            <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-surface-900">
-              <Package size={16} className="text-surface-400" aria-hidden="true" /> Expédition
-            </h2>
-            <dl className="divide-y divide-surface-100 text-sm">
-              {exp.pays_depart && <div className="flex justify-between py-2"><dt className="text-surface-500">Départ</dt><dd className="font-medium text-surface-800">{exp.pays_depart}</dd></div>}
-              {exp.pays_destination && <div className="flex justify-between py-2"><dt className="text-surface-500">Destination</dt><dd className="font-medium text-surface-800">{exp.pays_destination}</dd></div>}
-              {colis.map((c, i) => (
-                <div key={c.id || i} className="flex justify-between gap-3 py-2">
-                  <dt className="truncate text-surface-500">{c.designation || c.description || c.nom || `Colis ${i + 1}`}</dt>
-                  <dd className="shrink-0 font-medium text-surface-800">{c.poids ? `${c.poids} kg` : ''}{c.quantite ? ` × ${c.quantite}` : ''}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-        )}
       </div>
 
       {action && (
-        <StickyActionBar hint={slide?.hint || action.hint}>
+        <StickyActionBar hint={`${slide?.hint || action.hint} · Gain ${formatPrice(missionPrice(mission))}`}>
           <div className="w-full space-y-2">
             {actionError && !sheet && <p className="field-error mt-0 text-center" role="alert">{actionError}</p>}
             <SlideToConfirm label={slide?.label || action.label} onConfirm={onSlide} loading={busy} />

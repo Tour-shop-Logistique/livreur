@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
 import notificationService from '../../services/notificationService';
 import { apiErrorMessage } from '../../services/api';
+import { toast } from 'sonner';
 import { fetchAbonnementStatus } from './abonnementSlice';
 import { fetchBalance, fetchEarningsHistory } from './earningsSlice';
 import { ROUTES, missionDetailPath, marketplaceDetailPath } from '../../routes';
@@ -35,6 +36,7 @@ const save = (items) => {
 // --- Notifications serveur -> forme commune { kind, titre, message, link } ----
 
 const KIND_RULES = [
+  [/paiement.?livreur/, 'payment_pending'],
   [/inscription.*rejet|rejetee?_?inscription/, 'account_rejected'],
   [/inscription/, 'account'],
   [/abonnement.*bloqu/, 'subscription_blocked'],
@@ -62,10 +64,31 @@ const linkOf = (cible, kind) => {
   return null;
 };
 
+// Paiement en cours (l'agence a confirme la reception) : message selon le mode.
+const PAYMENT_PENDING_COPY = {
+  express: "L'agence va vous payer directement.",
+  groupage: 'Le backoffice traitera votre paiement sous peu.',
+};
+
 export const mapServerNotification = (n) => {
   const data = n?.data || {};
   const signature = `${data.type || ''} ${n?.type || ''}`.toLowerCase().replace(/[\\]/g, ' ');
   const kind = kindOf(signature);
+  if (kind === 'payment_pending') {
+    return {
+      id: `srv-${n.id}`,
+      serverId: n.id,
+      server: true,
+      kind,
+      titre: data.titre || data.title || 'Paiement en cours',
+      message: [data.message, PAYMENT_PENDING_COPY[data.mode]].filter(Boolean).join(' '),
+      link: data.mission_id ? missionDetailPath(data.mission_id) : ROUTES.EARNINGS,
+      targetId: data.mission_id ?? null,
+      mode: data.mode ?? null,
+      date: n.created_at,
+      lue: Boolean(n.read_at),
+    };
+  }
   return {
     id: `srv-${n.id}`,
     serverId: n.id,
@@ -87,6 +110,7 @@ const SIDE_EFFECTS = {
   subscription_ok: [fetchAbonnementStatus],
   subscription_rejected: [fetchAbonnementStatus],
   subscription_blocked: [fetchAbonnementStatus],
+  payment_pending: [fetchBalance, fetchEarningsHistory],
   money: [fetchBalance, fetchEarningsHistory],
   money_rejected: [fetchBalance, fetchEarningsHistory],
 };
@@ -103,6 +127,7 @@ export const fetchServerNotifications = createAsyncThunk(
           const known = new Set(server.items.map((n) => n.id));
           const fresh = items.filter((n) => !n.lue && !known.has(n.id));
           new Set(fresh.flatMap((n) => SIDE_EFFECTS[n.kind] || [])).forEach((thunk) => dispatch(thunk()));
+          fresh.filter((n) => n.kind === 'payment_pending').forEach((n) => toast.info(n.titre, { description: n.message }));
         }
       }
       return {

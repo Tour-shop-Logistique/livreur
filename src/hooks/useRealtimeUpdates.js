@@ -186,6 +186,7 @@ export function useRealtimeWithNotifications(options = {}) {
           if (!state.auth.user?.disponible) return;
           // Livreur libre (aucune mission en cours) : feuille "Nouvelle mission" ;
           // en pleine course on ne l'interrompt pas, un toast suffit.
+          // (Les express restent acceptables jusqu'a 10 missions cumulees.)
           const free = state.missions.active.items.length === 0
             && !state.marketplace.mine.items.some(isActiveMarketplace);
           const mission = id != null && meta.count <= 1 && Array.isArray(res.payload)

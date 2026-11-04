@@ -154,6 +154,7 @@ export default function MarketplaceDetailPage() {
       <div className="page-container flex-1 space-y-4 py-4">
         {!isProposal && (
           <MissionMap
+            amount={montant}
             stops={[
               pickup && { key: 'from', kind: 'pickup', ...pickup, title: pickupContact.nom, detail: placeLabel(pickup) },
               dropoff && { key: 'to', kind: 'dropoff', ...dropoff, title: dropoffContact.nom, detail: placeLabel(dropoff) },
@@ -276,7 +277,7 @@ export default function MarketplaceDetailPage() {
       </div>
 
       {action && (
-        <StickyActionBar hint={action.hint}>
+        <StickyActionBar hint={`${action.hint} · Gain ${formatPrice(montant)}`}>
           <button type="button" aria-busy={busy} className="btn-accent btn-lg w-full" onClick={() => { setActionError(null); setSheet(action.key); }} disabled={busy || bloque}>
             <ButtonLabel loading={busy} loadingLabel="Envoi…">{action.label}</ButtonLabel>
           </button>

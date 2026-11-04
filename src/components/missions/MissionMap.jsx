@@ -11,6 +11,7 @@ import useRoute from '../../hooks/useRoute';
 import useLivePosition from '../../hooks/useLivePosition';
 import { isValidPoint, formatDistance, formatEta } from '../../services/routingService';
 import { mapsLink } from '../../utils/missionFlow';
+import { formatPrice } from '../../utils/format';
 import { pinIcon, meIcon } from './mapPins';
 import { TILE_URL, TILE_ATTRIBUTION } from '../../utils/mapTiles';
 
@@ -53,7 +54,9 @@ function MapController({ points, tick, expanded }) {
 
 // variant : 'card' (bloc dans la page) | 'hero' (bord a bord en tete d'ecran,
 // infos de trajet en surimpression ; le contenu suivant chevauche son bas).
-export default function MissionMap({ stops = [], nextStop = null, variant = 'card' }) {
+export default function MissionMap({
+  stops = [], nextStop = null, variant = 'card', amount = null,
+}) {
   const valid = useMemo(() => stops.filter((s) => s && isValidPoint(s)), [stops]);
   const [expanded, setExpanded] = useState(false);
   const [follow, setFollow] = useState(readFollow);
@@ -158,6 +161,14 @@ export default function MissionMap({ stops = [], nextStop = null, variant = 'car
             </>
           )}
         </MapContainer>
+
+        {/* Gain de la course, visible pendant tout le suivi. */}
+        {amount != null && (
+          <p className="absolute left-3 top-8 z-[400] rounded-xl bg-navy-900 px-3 py-1.5 text-sm font-bold text-white shadow-md">
+            <span className="text-xs font-semibold text-navy-200">Course </span>
+            <span className="tabular">{formatPrice(amount)}</span>
+          </p>
+        )}
 
         <div className="absolute right-2 top-2 z-[400] flex flex-col gap-2">
           <button

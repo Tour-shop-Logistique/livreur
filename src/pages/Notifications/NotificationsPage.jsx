@@ -32,6 +32,7 @@ const KIND = {
   subscription_ok: { icon: BadgeCheck, className: 'bg-success-50 text-success-600' },
   subscription_rejected: { icon: CircleX, className: 'bg-danger-50 text-danger-600' },
   subscription_blocked: { icon: Lock, className: 'bg-danger-50 text-danger-600' },
+  payment_pending: { icon: Wallet, className: 'bg-accent-50 text-accent-700' },
   money: { icon: Wallet, className: 'bg-success-50 text-success-600' },
   money_rejected: { icon: Wallet, className: 'bg-danger-50 text-danger-600' },
 };
@@ -40,7 +41,7 @@ const FILTERS = [
   { key: 'all', label: 'Toutes', kinds: null },
   { key: 'missions', label: 'Missions', kinds: ['available', 'proposed', 'assigned'] },
   { key: 'offers', label: 'Offres', kinds: ['accepted', 'refused'] },
-  { key: 'compte', label: 'Compte', kinds: ['account', 'account_rejected', 'subscription', 'subscription_ok', 'subscription_rejected', 'subscription_blocked', 'money', 'money_rejected'] },
+  { key: 'compte', label: 'Compte', kinds: ['account', 'account_rejected', 'subscription', 'subscription_ok', 'subscription_rejected', 'subscription_blocked', 'money', 'money_rejected', 'payment_pending'] },
 ];
 
 function ActivityItem({ item, onOpen }) {

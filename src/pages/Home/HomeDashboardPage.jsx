@@ -19,7 +19,7 @@ import {
   expeditionAction, expeditionPhase, expeditionStepIndex, marketplaceAction, marketplaceStepIndex,
   isActiveMarketplace, isMarketplaceProposal, isProposalExpired, marketplacePickup, marketplaceDropoff,
   placeLabel, addressLine, mapsLink, EXPEDITION_STEPS, MARKETPLACE_STEPS, MISSION_TYPE_LABEL, MISSION_MODE_LABEL,
-  missionPrice,
+  missionPrice, canTakeMoreMissions, missionQuotaLabel,
 } from '../../utils/missionFlow';
 import { formatDistance } from '../../services/routingService';
 import { formatPrice, currencyLabel, fullName } from '../../utils/format';
@@ -52,8 +52,8 @@ function Price({ value, className = 'text-lead', currencyClass = 'text-xs' }) {
   );
 }
 
-// Mission en cours = element central de l'accueil (un livreur n'a jamais plus
-// d'une mission d'expedition active, §3) : prochaine etape, progression et
+// Mission en cours = element central de l'accueil (la plus ancienne ; le livreur
+// peut en cumuler jusqu'a 10, les autres sont listees) : prochaine etape, progression et
 // actions directes (appeler, itineraire) sans ouvrir le detail.
 function ActiveMissionCard({
   to, status, kicker, title, detail, price, steps, current, phone, mapsUrl, actionLabel,
@@ -389,6 +389,18 @@ export default function HomeDashboardPage() {
 
         {/* Mission en cours : l'action du moment passe avant tout le reste. */}
         {activeMission && <ExpeditionHero mission={activeMission} />}
+        {active.items.length > 1 && (
+          <Link
+            to={`${ROUTES.MISSIONS}?onglet=encours`}
+            className="card flex items-center justify-between gap-3 p-3.5 text-sm"
+          >
+            <span className="font-semibold text-navy-950">
+              {plural(active.items.length - 1, 'autre mission')} en cours
+              <span className="font-normal text-surface-500"> · {missionQuotaLabel(active.items.length)}</span>
+            </span>
+            <ArrowRight size={16} className="text-surface-400" aria-hidden="true" />
+          </Link>
+        )}
         {!activeMission && activeLivraison && <MarketplaceHero livraison={activeLivraison} />}
 
         <ReadinessCard />
@@ -397,7 +409,7 @@ export default function HomeDashboardPage() {
           <Opportunities
             express={available.items}
             marketplace={marketplaceExpress}
-            busy={active.items.length > 0}
+            busy={!canTakeMoreMissions(active.items.length)}
           />
         ) : !hasActive && <WaitingCard />)}
       </div>

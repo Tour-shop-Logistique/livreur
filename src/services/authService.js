@@ -19,6 +19,9 @@ const persistSession = ({ user, token }) => {
   persistUser(user);
 };
 
+// Le backend normalise l'email en minuscules : on fait pareil avant envoi.
+const normEmail = (e) => (typeof e === 'string' ? e.trim().toLowerCase() : e);
+
 const clearSession = () => {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
@@ -33,7 +36,7 @@ const registerLivreur = async (form) => {
     telephone: form.telephone,
     indicatif_telephone: form.indicatifTelephone,
     whatsapp_number: form.whatsappNumber,
-    email: form.email,
+    email: normEmail(form.email),
     password: form.password,
     password_confirmation: form.passwordConfirmation,
     code_pays: form.codePays,
@@ -53,12 +56,12 @@ const registerLivreur = async (form) => {
 
 // POST /verify-email — le compte reste inactif tant que le backoffice n'a pas valide.
 const verifyEmail = async ({ email, code }) => {
-  const { data } = await api.post('/verify-email', { email, code });
+  const { data } = await api.post('/verify-email', { email: normEmail(email), code });
   return data;
 };
 
 const resendEmailVerification = async (email) => {
-  const { data } = await api.post('/resend-email-verification', { email });
+  const { data } = await api.post('/resend-email-verification', { email: normEmail(email) });
   return data;
 };
 
@@ -66,7 +69,7 @@ const resendEmailVerification = async (email) => {
 // Ne renvoie que le User brut : la fiche Livreur vient de GET /livreur/profil.
 const login = async ({ email, telephone, password }) => {
   const payload = { password, type: ACCOUNT_TYPE };
-  if (email) payload.email = email;
+  if (email) payload.email = normEmail(email);
   if (telephone) payload.telephone = telephone;
   const { data } = await api.post('/login', payload);
   if (data?.token) persistSession({ user: data.user, token: data.token });
@@ -130,7 +133,7 @@ const updateVehicle = async ({
 // PUT /profile/update — nom, prenoms, telephone, indicatif, email (code_pays interdit).
 const updateProfile = async ({ nom, prenoms, telephone, indicatifTelephone, email }) => {
   const { data } = await api.put('/profile/update', {
-    nom, prenoms, telephone, indicatif_telephone: indicatifTelephone, email,
+    nom, prenoms, telephone, indicatif_telephone: indicatifTelephone, email: normEmail(email),
   });
   return data;
 };
@@ -161,18 +164,18 @@ const setAvailability = async (disponible) => {
 };
 
 const forgotPassword = async (email) => {
-  const { data } = await api.post('/forgot-password', { email });
+  const { data } = await api.post('/forgot-password', { email: normEmail(email) });
   return data;
 };
 
 const verifyResetCode = async ({ email, code }) => {
-  const { data } = await api.post('/verify-reset-code', { email, code });
+  const { data } = await api.post('/verify-reset-code', { email: normEmail(email), code });
   return data;
 };
 
 const resetPassword = async ({ email, code, password, passwordConfirmation }) => {
   const { data } = await api.post('/reset-password', {
-    email,
+    email: normEmail(email),
     code,
     password,
     password_confirmation: passwordConfirmation,
